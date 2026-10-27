@@ -308,6 +308,45 @@ ruby rp {
   background: rgba(37, 99, 235, 0.15);
 }
 
+/* Writing Mode Islands: mix vertical blocks in horizontal docs and vice versa */
+.vertical {
+  writing-mode: vertical-rl;
+  -webkit-writing-mode: vertical-rl;
+  -epub-writing-mode: vertical-rl;
+  text-orientation: mixed;
+  -webkit-text-orientation: mixed;
+  max-height: 70vh;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 1.5em 1em;
+  margin: 1.6em 0;
+  border-radius: 6px;
+  background: var(--lm-vertical-bg, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--lm-vertical-border, #e2e8f0);
+}
+.vertical p {
+  text-indent: 1em;
+  margin: 0 0.6em;
+}
+.vertical h1, .vertical h2, .vertical h3, .vertical h4 {
+  margin: 0 0.8em;
+}
+
+.horizontal {
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  -epub-writing-mode: horizontal-tb;
+  padding: 1.5em 1em;
+  margin: 1.6em 0;
+  border-radius: 6px;
+  background: var(--lm-horizontal-bg, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--lm-horizontal-border, #e2e8f0);
+}
+.horizontal p {
+  text-indent: 0;
+  margin: 0.6em 0;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }

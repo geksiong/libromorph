@@ -105,3 +105,31 @@ ruby rt {
   display: inline-block;
   vertical-align: middle;
 }
+
+/* Horizontal island inside vertical document */
+.horizontal {
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  -epub-writing-mode: horizontal-tb;
+  padding: 1.5em 1.2em;
+  margin: 0 1.6em;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid #d4c9b5;
+}
+.horizontal p {
+  text-indent: 0;
+  margin: 0.6em 0;
+}
+
+/* Vertical island class is a no-op in this theme (already vertical) but
+   ensure styling stays consistent when used */
+.vertical {
+  max-height: none;
+  overflow-x: visible;
+  overflow-y: visible;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+}

@@ -323,7 +323,19 @@ function Div(div)
     end
   end
 
-  -- 2. Check for Admonitions / Callouts
+  -- 2. Check for Writing Mode Islands (vertical / horizontal)
+  if div.classes:includes('vertical') or div.classes:includes('horizontal') then
+    local mode_class = div.classes:includes('vertical') and 'vertical' or 'horizontal'
+    local inner_html = pandoc.write(pandoc.Pandoc(div.content), 'html')
+
+    local out = string.format(
+      '<div class="%s">\n%s\n</div>',
+      mode_class, inner_html
+    )
+    return pandoc.RawBlock('html', out)
+  end
+
+  -- 3. Check for Admonitions / Callouts
   for ctype, info in pairs(callout_types) do
     if div.classes:includes(ctype) then
       local custom_title = div.attributes.title or info.title

@@ -37,6 +37,31 @@ The Tang dynasty poet [Li Bai]{.index entry="Literature!Li Bai"} (李白) writin
 **Vertical Reader Tip**: If you compile with the `--theme cjk-vertical` option or click the `⇅ Switch to Vertical` button on the web reader, the entire book switches into traditional right-to-left vertical column reading mode. In EPUB files, this sets `page-progression-direction="rtl"` in the package spine!
 :::
 
+## Mixed Writing Modes
+
+LibroMorph supports mixing vertical and horizontal text blocks within the same document. This is useful when a primarily horizontal (Western) book needs a traditional vertical passage, or when a vertical CJK book needs a horizontal section for technical content or foreign-language quotations.
+
+### Vertical Block in a Horizontal Page
+
+The following classical passage is rendered in vertical columns, even within a horizontal document:
+
+::: vertical
+道可道，非常道。
+名可名，非常名。
+無名天地之始；
+有名萬物之母。
+:::
+
+### Horizontal Block in a Vertical Page
+
+When reading a vertical-layout book, you can insert a horizontal block for content that reads better left-to-right:
+
+::: horizontal
+**English Translation:** "The Way that can be spoken of is not the constant Way; the name that can be named is not the constant Name. The Nameless is the origin of Heaven and Earth; the Named is the mother of myriad things."
+
+— *Dao De Jing*, Chapter 1 (Laozi)
+:::
+
 ## Philosophical Reflection Quiz
 
 ::: quiz

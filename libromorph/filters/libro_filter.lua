@@ -24,28 +24,87 @@ local callout_types = {
 
 -- Process Inline elements
 function Inlines(inlines)
+  -- Pre-pass: merge consecutive Str/Space runs into single Str tokens so that
+  -- ruby patterns like {花間|huā jiān} (which Pandoc splits on the space inside
+  -- the annotation) are reassembled before the pattern match.  After matching
+  -- we re-split any leftover plain text back into Str/Space inlines.
+  local merged = {}
+  local buf = nil   -- current merged string, or nil
+  for _, el in ipairs(inlines) do
+    if el.t == 'Str' then
+      buf = (buf or "") .. el.text
+    elseif el.t == 'Space' then
+      if buf ~= nil then
+        buf = buf .. " "
+      else
+        table.insert(merged, el)
+      end
+    else
+      if buf ~= nil then
+        -- Trim any trailing space we accumulated that won't be part of a ruby
+        table.insert(merged, pandoc.Str(buf))
+        buf = nil
+      end
+      table.insert(merged, el)
+    end
+  end
+  if buf ~= nil then
+    table.insert(merged, pandoc.Str(buf))
+  end
+
+  -- Helper: re-split a plain string into Str / Space inlines, preserving
+  -- leading/trailing spaces accurately.
+  local function split_str(s)
+    local parts = pandoc.Inlines({})
+    -- Walk character by character grouping word vs space runs
+    local i = 1
+    local word_start = nil
+    while i <= #s do
+      local c = s:sub(i, i)
+      if c == " " then
+        if word_start then
+          parts:insert(pandoc.Str(s:sub(word_start, i - 1)))
+          word_start = nil
+        end
+        parts:insert(pandoc.Space())
+      else
+        if not word_start then word_start = i end
+      end
+      i = i + 1
+    end
+    if word_start then
+      parts:insert(pandoc.Str(s:sub(word_start)))
+    end
+    return parts
+  end
+
   local new_inlines = pandoc.Inlines({})
 
-  for i, el in ipairs(inlines) do
+  for _, el in ipairs(merged) do
     if el.t == 'Str' then
       local text = el.text
 
-      -- Check for Ruby notation: {漢字|かんじ}
-      if text:find("{[^{}|]+|[^{}|]+}") then
+      -- Check for Ruby notation: {漢字|かんじ} — ruby text may contain spaces
+      -- (e.g. {花間|huā jiān}, {莊周|Zhuāng Zhōu})
+      if text:find("{[^{}|]+|[^{}]+}") then
         local last_pos = 1
-        for start_pos, base, ruby, end_pos in text:gmatch("()%{([^|{}]+)|([^|{}]+)%}()") do
+        for start_pos, base, ruby, end_pos in text:gmatch("()%{([^|{}]+)|([^{}]+)%}()") do
           if start_pos > last_pos then
-            new_inlines:insert(pandoc.Str(text:sub(last_pos, start_pos - 1)))
+            for _, part in ipairs(split_str(text:sub(last_pos, start_pos - 1))) do
+              new_inlines:insert(part)
+            end
           end
           local raw = string.format("<ruby>%s<rp>(</rp><rt>%s</rt><rp>)</rp></ruby>", base, ruby)
           new_inlines:insert(pandoc.RawInline('html', raw))
           last_pos = end_pos
         end
         if last_pos <= #text then
-          new_inlines:insert(pandoc.Str(text:sub(last_pos)))
+          for _, part in ipairs(split_str(text:sub(last_pos))) do
+            new_inlines:insert(part)
+          end
         end
 
-      -- Check for TCY notation: {tcy:42} or {tcy:42}
+      -- Check for TCY notation: {tcy:42}
       elseif text:find("{tcy:[^}]+}") then
         local last_pos = 1
         for start_pos, val, end_pos in text:gmatch("()%{tcy:%s*([^{}]+)%}()") do
@@ -141,13 +200,16 @@ function Div(div)
 
               for inl_idx, inline in ipairs(sub_block.content) do
                 if inl_idx == 1 and inline.t == 'Str' then
-                  local t = inline.text
+                  -- The Inlines pre-pass may have merged a trailing space into this
+                  -- token (e.g. "☒ "), so trim before matching.
+                  local t = inline.text:match("^%S+")  -- leading non-space token
+                  local has_trailing_space = inline.text:find(" ")
                   if t == "☒" or t == "☑" or t == "[x]" or t == "[X]" or t == "(x)" or t == "(X)" then
                     is_correct = true
-                    skip_next_space = true
+                    skip_next_space = not has_trailing_space  -- only skip next Space token if not already consumed
                   elseif t == "☐" or t == "[ ]" or t == "()" then
                     is_correct = false
-                    skip_next_space = true
+                    skip_next_space = not has_trailing_space
                   else
                     inlines:insert(inline)
                   end
@@ -201,7 +263,7 @@ function Div(div)
       table.insert(out, string.format('  <div class="quiz-header"><span class="quiz-badge">📝 %s</span></div>', title))
       table.insert(out, string.format('  <div class="quiz-question">%s</div>', question_html))
       table.insert(out, '  <div class="quiz-options-list">')
-      
+
       local correct_label = ""
       for idx, opt in ipairs(options) do
         local ltr = letters[idx] or tostring(idx)

@@ -44,6 +44,15 @@
 [data-color-mode="dark"] pre {
   background: #090a0c !important;
 }
+/* abcjs draws in currentColor, so the score card follows the page colors */
+[data-color-mode="dark"] .abc-score {
+  --lm-abc-border: #27272a;
+  --lm-abc-bg: transparent;
+}
+[data-color-mode="dark"] .abc-source-toggle .abc-source {
+  color: #e2e8f0;
+  border-color: #27272a;
+}
 
 /* Sepia mode colors */
 [data-color-mode="sepia"] {

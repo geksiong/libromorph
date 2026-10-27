@@ -1,8 +1,12 @@
 -- libro_filter.lua: Pandoc Lua filter for LibroMorph
--- Supports: Ruby text (furigana), Tate-chu-yoko, Quizzes, Callouts, Dropcaps, and Index anchors.
+-- Supports: Ruby text (furigana), Tate-chu-yoko, Quizzes, Callouts, Dropcaps,
+-- Index anchors, ABC music notation, and writing-mode islands.
 
 local is_epub = (FORMAT:match("^epub") ~= nil)
 local quiz_counter = 0
+local abc_counter = 0
+-- Directory of build-time rendered ABC SVGs (<sha1>-<n>.svg), set by the builder
+local abc_svg_dir = os.getenv("LIBROMORPH_ABC_SVG_DIR")
 
 -- Helper: Convert inlines or blocks to plain text or HTML string
 local function stringify(x)
@@ -167,6 +171,80 @@ function Inlines(inlines)
   end
 
   return new_inlines
+end
+
+-- Helper: Escape text for embedding in HTML content or attribute values
+local function html_escape(s)
+  return (s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"))
+end
+
+-- Process CodeBlock elements (ABC Music Notation)
+function CodeBlock(block)
+  if block.classes:includes('abc') then
+    abc_counter = abc_counter + 1
+    local abc_id = block.identifier ~= "" and block.identifier or ("abc-score-" .. tostring(abc_counter))
+    local abc_text = block.text
+    local escaped = html_escape(abc_text)
+
+    -- Extract title from the ABC "T:" header field (must start a line)
+    local title = ("\n" .. abc_text):match("\nT:%s*([^\n]-)%s*\n")
+      or ("\n" .. abc_text):match("\nT:%s*(.-)%s*$")
+    local title_attr = (title and title ~= "") and string.format(' data-title="%s"', html_escape(title)) or ""
+
+    if is_epub then
+      -- EPUB: Most reading systems don't run scripts, so use the SVGs the
+      -- builder pre-rendered for this score (one image per tune/page).
+      local images = {}
+      if abc_svg_dir then
+        local digest = pandoc.utils.sha1(abc_text)
+        local n = 1
+        while true do
+          local path = abc_svg_dir .. "/" .. digest .. "-" .. n .. ".svg"
+          local f = io.open(path, "r")
+          if not f then break end
+          f:close()
+          local alt = title and ("Music score: " .. title) or "Music score"
+          table.insert(images, pandoc.Plain({
+            pandoc.Image({ pandoc.Str(alt) }, path, "", pandoc.Attr("", { "abc-svg" }))
+          }))
+          n = n + 1
+        end
+      end
+      if #images > 0 then
+        return pandoc.Div(images, pandoc.Attr(abc_id, { "abc-score", "abc-score-epub" }))
+      end
+
+      -- No rendered SVG available: show the raw notation in a styled block
+      -- (titled via data-title).
+      local out = string.format(
+        '<div class="abc-score abc-score-epub" id="%s"%s>\n' ..
+        '<pre class="abc-source"><code>%s</code></pre>\n' ..
+        '</div>',
+        abc_id, title_attr, escaped
+      )
+      return pandoc.RawBlock('html', out)
+    else
+      -- HTML website: Render client-side with abcjs
+      -- The ABC source is stored in a <script> tag (type=text/vnd.abc) so it
+      -- won't be displayed, and abc.js picks it up for rendering. "</" is
+      -- split so the notation can never terminate the script element early.
+      local script_text = abc_text:gsub("</", "<\\/")
+      local out = string.format(
+        '<div class="abc-score" id="%s"%s>\n' ..
+        '<div class="abc-render"></div>\n' ..
+        '<script type="text/vnd.abc">%s</script>\n' ..
+        '<details class="abc-source-toggle">\n' ..
+        '  <summary>View ABC Source</summary>\n' ..
+        '  <pre class="abc-source"><code>%s</code></pre>\n' ..
+        '</details>\n' ..
+        '</div>',
+        abc_id, title_attr, script_text, escaped
+      )
+      return pandoc.RawBlock('html', out)
+    end
+  end
+
+  return block
 end
 
 -- Process Div elements (Quizzes, Callouts)

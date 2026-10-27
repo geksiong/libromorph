@@ -17,6 +17,11 @@ dependencies = [
 [project.scripts]
 libromorph = "libromorph.cli:main"
 
+[project.optional-dependencies]
+music = [
+    "playwright>=1.40",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["libromorph*"]

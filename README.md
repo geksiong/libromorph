@@ -20,6 +20,7 @@
 - ⇅ **Vertical Writing & Tate-chū-yoko**: Full support for vertical columns and upright numbers in vertical text via `{tcy:42}` and `[2026]{.tcy}`.
 - 📝 **Interactive Self-Check Quizzes**: Write quizzes using simple markdown lists (`::: quiz` and `- [x]`). Generates animated interactive quiz widgets for HTML and `<details>` answer reveals for EPUB readers.
 - 📐 **Mathematical Formulas**: LaTeX formulas (`$E = mc^2$` and `$$\dots$$`) rendered to standards-compliant **MathML** for EPUB 3, and interactive **MathJax 3** for web readers.
+- 🎵 **ABC Music Notation**: Fenced ` ```abc ` code blocks are rendered as sheet music with [abcjs](https://www.abcjs.net) in web readers (with a "View ABC Source" toggle), and shown as titled notation blocks in EPUB.
 
 ---
 
@@ -179,6 +180,31 @@ Inline: $E = mc^2$ and block equations:
 
 $$\int_{-\infty}^{+\infty} e^{-x^2} \, dx = \sqrt{\pi}$$
 ```
+
+### 7. ABC Music Notation
+~~~markdown
+```abc
+X:1
+T:Ode to Joy
+M:4/4
+L:1/4
+K:D
+F F G A | A G F E | D D E F | F3/2 E/ E2 |
+```
+~~~
+The `T:` field is used as the score's title. Add `{#my-id .abc}` attributes instead of `abc` to set a custom anchor id.
+
+Web readers render scores in the browser with abcjs. For EPUB, scores are rendered to SVG images at build time with the engine chosen by `abc_renderer` in `book.yaml` or `--abc-renderer` on the command line:
+
+| Renderer  | Requirements                                                                 |
+|-----------|------------------------------------------------------------------------------|
+| `abcjs`   | `pip install 'libromorph[music]'` plus Chrome/Chromium (or `playwright install chromium`); network access to load abcjs. Matches the web reader. |
+| `abcm2ps` | `abcm2ps` on `PATH`                                                          |
+| `abc2svg` | `npm install -g abc2svg` and a JS interpreter (`node`, `qjs`, ...)          |
+| `auto`    | *(default)* first available of the above; falls back to text with a warning |
+| `none`    | show the ABC source as text in EPUB                                         |
+
+Dependencies are checked before rendering; an explicitly chosen renderer that is unavailable fails the build with an install hint.
 
 ---
 

@@ -40,6 +40,7 @@ class BookConfig:
     index_title: str = "Index"
     math_mode: str = "auto"
     custom_css: Optional[str] = None
+    abc_renderer: str = "auto"
     chapters: List[ChapterInfo] = field(default_factory=list)
 
     @classmethod
@@ -114,6 +115,7 @@ class BookConfig:
                     break
 
         custom_css = data.get("custom_css")
+        abc_renderer = str(data.get("abc_renderer", "auto")).lower()
 
         # Discover chapters
         explicit_chapters = data.get("chapters")
@@ -180,5 +182,6 @@ class BookConfig:
             index_title=index_title,
             math_mode=math_mode,
             custom_css=custom_css,
+            abc_renderer=abc_renderer,
             chapters=chapters
         )

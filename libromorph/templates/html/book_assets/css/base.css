@@ -308,6 +308,96 @@ ruby rp {
   background: rgba(37, 99, 235, 0.15);
 }
 
+/* ABC Music Score Notation */
+.abc-score {
+  margin: 1.6em 0;
+  padding: 1em 1.2em;
+  border: 1px solid var(--lm-abc-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--lm-abc-bg, #fefefe);
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  overflow-x: auto;
+}
+/* abcjs renders the title inside the SVG, so only label the EPUB fallback */
+.abc-score-epub[data-title]::before {
+  content: "🎵 " attr(data-title);
+  display: block;
+  font-weight: 600;
+  font-size: 0.95em;
+  color: var(--lm-primary-accent, #2b6cb0);
+  margin-bottom: 0.6em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--lm-abc-border, #e2e8f0);
+}
+.abc-render {
+  min-height: 60px;
+  text-align: center;
+}
+.abc-render svg {
+  max-width: 100%;
+  height: auto;
+}
+.abc-source-toggle {
+  margin-top: 0.8em;
+  border-top: 1px dashed var(--lm-abc-border, #e2e8f0);
+  padding-top: 0.6em;
+}
+.abc-source-toggle summary {
+  cursor: pointer;
+  font-size: 0.85em;
+  color: #64748b;
+  font-weight: 500;
+  user-select: none;
+}
+.abc-source-toggle summary:hover {
+  color: #3b82f6;
+}
+.abc-source-toggle .abc-source {
+  margin: 0.6em 0 0 0;
+  padding: 0.8em 1em;
+  background: #f8fafc;
+  color: #1e293b;
+  border-radius: 4px;
+  font-size: 0.88em;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  border: 1px solid #e2e8f0;
+}
+/* Themes may style `pre code` with their own colors; follow the block's instead */
+.abc-source code {
+  background: transparent;
+  color: inherit;
+}
+.abc-error {
+  color: #b91c1c;
+  font-style: italic;
+  text-align: center;
+  padding: 1em;
+}
+
+/* EPUB ABC: build-time rendered SVG images */
+.abc-score-epub img.abc-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+/* EPUB ABC fallback: just show the notation */
+.abc-score-epub .abc-source {
+  margin: 0;
+  padding: 0.8em 1em;
+  background: #f8fafc;
+  color: #1e293b;
+  border-radius: 4px;
+  font-size: 0.9em;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+
 /* Writing Mode Islands: mix vertical blocks in horizontal docs and vice versa */
 .vertical {
   writing-mode: vertical-rl;

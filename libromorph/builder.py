@@ -13,6 +13,7 @@ from jinja2 import Environment, FileSystemLoader
 from .config import BookConfig, ChapterInfo
 from .indexer import BookIndexer
 from .cover import generate_cover_image
+from .abc_render import AbcRenderError, extract_abc_blocks, render_abc_blocks, resolve_renderer
 
 
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -100,7 +101,15 @@ class BookBuilder:
 
         # 3. Build EPUB
         if target_format in ["all", "epub"]:
-            epub_path = self._build_epub(processed_chapters, cover_image)
+            # Check the ABC renderer's dependencies up front, before any rendering
+            abc_texts = [t for _, md in processed_chapters for t in extract_abc_blocks(md)]
+            abc_renderer = None
+            if abc_texts:
+                try:
+                    abc_renderer = resolve_renderer(self.config.abc_renderer)
+                except AbcRenderError as e:
+                    raise BuildError(str(e))
+            epub_path = self._build_epub(processed_chapters, cover_image, abc_texts, abc_renderer)
             results["epub"] = epub_path
 
         # 4. Build HTML Website
@@ -110,7 +119,8 @@ class BookBuilder:
 
         return results
 
-    def _build_epub(self, processed_chapters: List[tuple], cover_image: str) -> str:
+    def _build_epub(self, processed_chapters: List[tuple], cover_image: str,
+                    abc_texts: List[str], abc_renderer: Optional[str]) -> str:
         """Compiles standard EPUB 3 document with Pandoc."""
         epub_filename = f"{self.config.title.lower().replace(' ', '-')}.epub"
         # Sanitize filename
@@ -148,6 +158,16 @@ class BookBuilder:
                 with open(theme_css_path, "r", encoding="utf-8") as f:
                     out_css.write(f.read() + "\n")
 
+            # Pre-render ABC music scores to SVG for the Lua filter to embed
+            pandoc_env = dict(os.environ)
+            if abc_renderer:
+                abc_svg_dir = os.path.join(tmpdir, "abc-svg")
+                try:
+                    render_abc_blocks(abc_renderer, abc_texts, abc_svg_dir)
+                except AbcRenderError as e:
+                    raise BuildError(str(e))
+                pandoc_env["LIBROMORPH_ABC_SVG_DIR"] = abc_svg_dir
+
             # Prepare pandoc command
             lua_filter = os.path.join(FILTERS_DIR, "libro_filter.lua")
             cmd = [
@@ -178,7 +198,7 @@ class BookBuilder:
                 cmd.append("-Mpage-progression-direction=rtl")
 
             print(f"[LibroMorph] Compiling EPUB: {os.path.basename(epub_out)}...")
-            res = subprocess.run(cmd, capture_output=True, text=True)
+            res = subprocess.run(cmd, capture_output=True, text=True, env=pandoc_env)
             if res.returncode != 0:
                 raise BuildError(f"Pandoc EPUB generation failed:\n{res.stderr}")
 
@@ -201,7 +221,7 @@ class BookBuilder:
         shutil.copy2(os.path.join(src_assets, "css", "reader.css"), os.path.join(css_dest, "reader.css"))
         shutil.copy2(self._resolve_theme_css(), os.path.join(css_dest, "theme.css"))
 
-        for js_file in ["quiz.js", "reader.js", "search.js"]:
+        for js_file in ["quiz.js", "reader.js", "search.js", "abc.js"]:
             src_js = os.path.join(src_assets, "js", js_file)
             if os.path.exists(src_js):
                 shutil.copy2(src_js, os.path.join(js_dest, js_file))

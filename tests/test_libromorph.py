@@ -10,6 +10,7 @@ from libromorph.config import BookConfig
 from libromorph.builder import BookBuilder
 from libromorph.indexer import BookIndexer, slugify
 from libromorph.cover import generate_cover_image
+from libromorph import abc_render
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -90,6 +91,91 @@ def test_quiz_filter_epub():
             os.remove(tmp_path)
 
 
+ABC_INPUT = """
+```abc
+X:1
+T:Twinkle "Little" Star
+M:4/4
+L:1/4
+K:C
+C C G G | A A G2 |
+```
+"""
+
+
+def test_abc_filter_html():
+    cmd = ["pandoc", "-f", "markdown", "-t", "html", f"--lua-filter={FILTER_PATH}"]
+    res = subprocess.run(cmd, input=ABC_INPUT, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert '<div class="abc-score" id="abc-score-1" data-title="Twinkle &quot;Little&quot; Star">' in res.stdout
+    assert '<script type="text/vnd.abc">' in res.stdout
+    assert "C C G G | A A G2 |" in res.stdout
+    assert 'class="abc-source-toggle"' in res.stdout
+
+
+def test_abc_filter_epub():
+    with tempfile.NamedTemporaryFile(suffix=".epub", delete=False) as tmp_epub:
+        tmp_path = tmp_epub.name
+
+    try:
+        cmd = ["pandoc", "-f", "markdown", "-t", "epub3", f"--lua-filter={FILTER_PATH}", "-o", tmp_path]
+        res = subprocess.run(cmd, input=ABC_INPUT, capture_output=True, text=True)
+        assert res.returncode == 0
+        import zipfile
+        with zipfile.ZipFile(tmp_path, "r") as z:
+            ch1_content = z.read("EPUB/text/ch001.xhtml").decode("utf-8")
+            assert "abc-score-epub" in ch1_content
+            assert "<script" not in ch1_content
+            assert "C C G G | A A G2 |" in ch1_content
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
+def test_abc_filter_epub_uses_rendered_svg():
+    abc_text = abc_render.extract_abc_blocks(ABC_INPUT)[0]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        svg_dir = os.path.join(tmpdir, "abc-svg")
+        os.makedirs(svg_dir)
+        svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>'
+        with open(os.path.join(svg_dir, f"{abc_render.abc_hash(abc_text)}-1.svg"), "w") as f:
+            f.write(svg)
+
+        epub_path = os.path.join(tmpdir, "out.epub")
+        cmd = ["pandoc", "-f", "markdown", "-t", "epub3", f"--lua-filter={FILTER_PATH}", "-o", epub_path]
+        env = dict(os.environ, LIBROMORPH_ABC_SVG_DIR=svg_dir)
+        res = subprocess.run(cmd, input=ABC_INPUT, capture_output=True, text=True, env=env)
+        assert res.returncode == 0
+        import zipfile
+        with zipfile.ZipFile(epub_path, "r") as z:
+            ch1_content = z.read("EPUB/text/ch001.xhtml").decode("utf-8")
+            assert 'class="abc-svg"' in ch1_content
+            assert "abc-source" not in ch1_content
+            assert any(name.endswith(".svg") for name in z.namelist())
+
+
+def test_abc_renderer_resolution(monkeypatch):
+    assert abc_render.resolve_renderer("none") is None
+    with pytest.raises(abc_render.AbcRenderError, match="Unknown abc_renderer"):
+        abc_render.resolve_renderer("lilypond")
+
+    # Simulate missing tools: explicit choice errors, auto falls back to text
+    monkeypatch.setattr(abc_render.shutil, "which", lambda name: None)
+    monkeypatch.setattr(abc_render, "check_renderer",
+                        lambda name: None if name == "abc2svg" else "missing")
+    assert abc_render.resolve_renderer("auto") == "abc2svg"
+    with pytest.raises(abc_render.AbcRenderError, match="abcm2ps"):
+        abc_render.resolve_renderer("abcm2ps")
+    monkeypatch.setattr(abc_render, "check_renderer", lambda name: "missing")
+    assert abc_render.resolve_renderer("auto") is None
+
+
+def test_abcm2ps_check_requires_binary(monkeypatch):
+    monkeypatch.setattr(abc_render.shutil, "which", lambda name: None)
+    assert "not found" in abc_render.check_renderer("abcm2ps")
+    assert "not found" in abc_render.check_renderer("abc2svg")
+
+
 def test_callout_filter():
     md_input = """
 ::: note
@@ -151,3 +237,4 @@ def test_full_demo_book_build():
         assert os.path.isdir(results["html"])
         assert os.path.exists(os.path.join(results["html"], "index.html"))
         assert os.path.exists(os.path.join(results["html"], "book-index.html"))
+        assert os.path.exists(os.path.join(results["html"], "assets", "js", "abc.js"))

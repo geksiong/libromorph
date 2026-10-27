@@ -23,6 +23,16 @@ LibroMorph integrates the following capabilities seamlessly into Pandoc's proces
 6. **Interactive Self-Testing Quizzes**: Dynamic client-side interactive quizzes with instant grading and explanations for web readers, alongside accessible `<details>` fallbacks for EPUB e-readers.
 7. **Mathematical Typesetting**: Standards-compliant [MathML]{.index entry="Mathematics!MathML"} for EPUB 3 readers, paired with [MathJax 3]{.index entry="Mathematics!MathJax"} for crisp, responsive web formula rendering.
 8. **Genre-Specific Typography Themes**: Choose between `classic-novel`, `technical`, `cjk-vertical`, `modern-minimal`, and `fantasy-vintage`.
+9. **Music Notation**: Fenced `abc` code blocks in [ABC notation]{.index entry="Music!ABC Notation"} are engraved as sheet music in web readers and shown as notation in EPUB:
+
+```abc
+X:1
+T:Ode to Joy
+M:4/4
+L:1/4
+K:D
+F F G A | A G F E | D D E F | F3/2 E/ E2 |
+```
 
 ::: tip
 Try switching between color modes (Light, Dark, and Sepia) using the dropdown in the top navigation bar!

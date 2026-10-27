@@ -1,12 +1,14 @@
 -- libro_filter.lua: Pandoc Lua filter for LibroMorph
 -- Supports: Ruby text (furigana), Tate-chu-yoko, Quizzes, Callouts, Dropcaps,
--- Index anchors, ABC music notation, and writing-mode islands.
+-- Index anchors, ABC music notation, Mermaid diagrams, and writing-mode islands.
 
 local is_epub = (FORMAT:match("^epub") ~= nil)
 local quiz_counter = 0
 local abc_counter = 0
--- Directory of build-time rendered ABC SVGs (<sha1>-<n>.svg), set by the builder
+local mermaid_counter = 0
+-- Directories of build-time rendered SVGs (<sha1>-<n>.svg), set by the builder
 local abc_svg_dir = os.getenv("LIBROMORPH_ABC_SVG_DIR")
+local mermaid_svg_dir = os.getenv("LIBROMORPH_MERMAID_SVG_DIR")
 
 -- Helper: Convert inlines or blocks to plain text or HTML string
 local function stringify(x)
@@ -178,70 +180,118 @@ local function html_escape(s)
   return (s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"))
 end
 
--- Process CodeBlock elements (ABC Music Notation)
+-- Helper: Image blocks for the SVGs pre-rendered from `text` into `svg_dir`
+-- (files <sha1(text)>-1.svg, -2.svg, ...); empty if none were rendered
+local function rendered_svg_images(svg_dir, text, alt, class)
+  local images = {}
+  if not svg_dir then return images end
+  local digest = pandoc.utils.sha1(text)
+  local n = 1
+  while true do
+    local path = svg_dir .. "/" .. digest .. "-" .. n .. ".svg"
+    local f = io.open(path, "r")
+    if not f then break end
+    f:close()
+    table.insert(images, pandoc.Plain({
+      pandoc.Image({ pandoc.Str(alt) }, path, "", pandoc.Attr("", { class }))
+    }))
+    n = n + 1
+  end
+  return images
+end
+
+-- ABC Music Notation
+local function abc_block(block)
+  abc_counter = abc_counter + 1
+  local abc_id = block.identifier ~= "" and block.identifier or ("abc-score-" .. tostring(abc_counter))
+  local abc_text = block.text
+  local escaped = html_escape(abc_text)
+
+  -- Extract title from the ABC "T:" header field (must start a line)
+  local title = ("\n" .. abc_text):match("\nT:%s*([^\n]-)%s*\n")
+    or ("\n" .. abc_text):match("\nT:%s*(.-)%s*$")
+  local title_attr = (title and title ~= "") and string.format(' data-title="%s"', html_escape(title)) or ""
+
+  if is_epub then
+    -- EPUB: Most reading systems don't run scripts, so use the SVGs the
+    -- builder pre-rendered for this score (one image per tune/page).
+    local alt = title and ("Music score: " .. title) or "Music score"
+    local images = rendered_svg_images(abc_svg_dir, abc_text, alt, "abc-svg")
+    if #images > 0 then
+      return pandoc.Div(images, pandoc.Attr(abc_id, { "abc-score", "abc-score-epub" }))
+    end
+
+    -- No rendered SVG available: show the raw notation in a styled block
+    -- (titled via data-title).
+    local out = string.format(
+      '<div class="abc-score abc-score-epub" id="%s"%s>\n' ..
+      '<pre class="abc-source"><code>%s</code></pre>\n' ..
+      '</div>',
+      abc_id, title_attr, escaped
+    )
+    return pandoc.RawBlock('html', out)
+  else
+    -- HTML website: Render client-side with abcjs
+    -- The ABC source is stored in a <script> tag (type=text/vnd.abc) so it
+    -- won't be displayed, and abc.js picks it up for rendering. "</" is
+    -- split so the notation can never terminate the script element early.
+    local script_text = abc_text:gsub("</", "<\\/")
+    local out = string.format(
+      '<div class="abc-score" id="%s"%s>\n' ..
+      '<div class="abc-render"></div>\n' ..
+      '<script type="text/vnd.abc">%s</script>\n' ..
+      '<details class="abc-source-toggle">\n' ..
+      '  <summary>View ABC Source</summary>\n' ..
+      '  <pre class="abc-source"><code>%s</code></pre>\n' ..
+      '</details>\n' ..
+      '</div>',
+      abc_id, title_attr, script_text, escaped
+    )
+    return pandoc.RawBlock('html', out)
+  end
+end
+
+-- Mermaid Diagrams
+local function mermaid_block(block)
+  mermaid_counter = mermaid_counter + 1
+  local diagram_id = block.identifier ~= "" and block.identifier or ("mermaid-diagram-" .. tostring(mermaid_counter))
+  local text = block.text
+  local alt = block.attributes["alt"] or "Diagram"
+  local alt_attr = string.format(' aria-label="%s"', html_escape(alt))
+
+  if is_epub then
+    -- EPUB: use the SVG the builder pre-rendered for this diagram
+    local images = rendered_svg_images(mermaid_svg_dir, text, alt, "mermaid-svg")
+    if #images > 0 then
+      return pandoc.Div(images, pandoc.Attr(diagram_id, { "mermaid-diagram", "mermaid-diagram-epub" }))
+    end
+
+    -- No rendered SVG available: show the diagram source
+    return pandoc.RawBlock('html', string.format(
+      '<div class="mermaid-diagram mermaid-diagram-epub" id="%s">\n' ..
+      '<pre class="mermaid-source"><code>%s</code></pre>\n' ..
+      '</div>',
+      diagram_id, html_escape(text)
+    ))
+  end
+
+  -- HTML website: Render client-side with mermaid.js (see js/mermaid-init.js).
+  -- Like ABC, the source lives in a non-executed <script> with "</" split.
+  return pandoc.RawBlock('html', string.format(
+    '<div class="mermaid-diagram" id="%s" role="img"%s>\n' ..
+    '<div class="mermaid-render"></div>\n' ..
+    '<script type="text/x-mermaid">%s</script>\n' ..
+    '</div>',
+    diagram_id, alt_attr, (text:gsub("</", "<\\/"))
+  ))
+end
+
+-- Process CodeBlock elements (ABC music, Mermaid diagrams)
 function CodeBlock(block)
   if block.classes:includes('abc') then
-    abc_counter = abc_counter + 1
-    local abc_id = block.identifier ~= "" and block.identifier or ("abc-score-" .. tostring(abc_counter))
-    local abc_text = block.text
-    local escaped = html_escape(abc_text)
-
-    -- Extract title from the ABC "T:" header field (must start a line)
-    local title = ("\n" .. abc_text):match("\nT:%s*([^\n]-)%s*\n")
-      or ("\n" .. abc_text):match("\nT:%s*(.-)%s*$")
-    local title_attr = (title and title ~= "") and string.format(' data-title="%s"', html_escape(title)) or ""
-
-    if is_epub then
-      -- EPUB: Most reading systems don't run scripts, so use the SVGs the
-      -- builder pre-rendered for this score (one image per tune/page).
-      local images = {}
-      if abc_svg_dir then
-        local digest = pandoc.utils.sha1(abc_text)
-        local n = 1
-        while true do
-          local path = abc_svg_dir .. "/" .. digest .. "-" .. n .. ".svg"
-          local f = io.open(path, "r")
-          if not f then break end
-          f:close()
-          local alt = title and ("Music score: " .. title) or "Music score"
-          table.insert(images, pandoc.Plain({
-            pandoc.Image({ pandoc.Str(alt) }, path, "", pandoc.Attr("", { "abc-svg" }))
-          }))
-          n = n + 1
-        end
-      end
-      if #images > 0 then
-        return pandoc.Div(images, pandoc.Attr(abc_id, { "abc-score", "abc-score-epub" }))
-      end
-
-      -- No rendered SVG available: show the raw notation in a styled block
-      -- (titled via data-title).
-      local out = string.format(
-        '<div class="abc-score abc-score-epub" id="%s"%s>\n' ..
-        '<pre class="abc-source"><code>%s</code></pre>\n' ..
-        '</div>',
-        abc_id, title_attr, escaped
-      )
-      return pandoc.RawBlock('html', out)
-    else
-      -- HTML website: Render client-side with abcjs
-      -- The ABC source is stored in a <script> tag (type=text/vnd.abc) so it
-      -- won't be displayed, and abc.js picks it up for rendering. "</" is
-      -- split so the notation can never terminate the script element early.
-      local script_text = abc_text:gsub("</", "<\\/")
-      local out = string.format(
-        '<div class="abc-score" id="%s"%s>\n' ..
-        '<div class="abc-render"></div>\n' ..
-        '<script type="text/vnd.abc">%s</script>\n' ..
-        '<details class="abc-source-toggle">\n' ..
-        '  <summary>View ABC Source</summary>\n' ..
-        '  <pre class="abc-source"><code>%s</code></pre>\n' ..
-        '</details>\n' ..
-        '</div>',
-        abc_id, title_attr, script_text, escaped
-      )
-      return pandoc.RawBlock('html', out)
-    end
+    return abc_block(block)
+  elseif block.classes:includes('mermaid') then
+    return mermaid_block(block)
   end
 
   return block

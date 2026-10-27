@@ -10,7 +10,7 @@ from libromorph.config import BookConfig
 from libromorph.builder import BookBuilder
 from libromorph.indexer import BookIndexer, slugify
 from libromorph.cover import generate_cover_image
-from libromorph import abc_render
+from libromorph import abc_render, mermaid_render
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -176,6 +176,73 @@ def test_abcm2ps_check_requires_binary(monkeypatch):
     assert "not found" in abc_render.check_renderer("abc2svg")
 
 
+MERMAID_INPUT = """
+```{.mermaid alt="A to B"}
+flowchart LR
+    A --> B
+```
+"""
+
+
+def test_mermaid_filter_html():
+    cmd = ["pandoc", "-f", "markdown", "-t", "html", f"--lua-filter={FILTER_PATH}"]
+    res = subprocess.run(cmd, input=MERMAID_INPUT, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert '<div class="mermaid-diagram" id="mermaid-diagram-1" role="img" aria-label="A to B">' in res.stdout
+    assert '<script type="text/x-mermaid">flowchart LR\n    A --> B</script>' in res.stdout
+
+
+def _mermaid_epub_chapter(env=None):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        epub_path = os.path.join(tmpdir, "out.epub")
+        cmd = ["pandoc", "-f", "markdown", "-t", "epub3", f"--lua-filter={FILTER_PATH}", "-o", epub_path]
+        res = subprocess.run(cmd, input=MERMAID_INPUT, capture_output=True, text=True,
+                             env=dict(os.environ, **(env or {})))
+        assert res.returncode == 0
+        import zipfile
+        with zipfile.ZipFile(epub_path, "r") as z:
+            return z.read("EPUB/text/ch001.xhtml").decode("utf-8"), z.namelist()
+
+
+def test_mermaid_filter_epub_fallback():
+    content, _ = _mermaid_epub_chapter()
+    assert "mermaid-diagram-epub" in content
+    assert '<pre class="mermaid-source">' in content
+    assert "<script" not in content
+
+
+def test_mermaid_filter_epub_uses_rendered_svg():
+    text = mermaid_render.extract_mermaid_blocks(MERMAID_INPUT)[0]
+    with tempfile.TemporaryDirectory() as svg_dir:
+        with open(os.path.join(svg_dir, f"{abc_render.abc_hash(text)}-1.svg"), "w") as f:
+            f.write('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>')
+        content, names = _mermaid_epub_chapter({"LIBROMORPH_MERMAID_SVG_DIR": svg_dir})
+    assert 'class="mermaid-svg"' in content
+    assert 'alt="A to B"' in content
+    assert "mermaid-source" not in content
+    assert any(name.endswith(".svg") for name in names)
+
+
+def test_mermaid_renderer_resolution(monkeypatch):
+    assert mermaid_render.resolve_renderer("none") is None
+    with pytest.raises(mermaid_render.MermaidRenderError, match="Unknown mermaid_renderer"):
+        mermaid_render.resolve_renderer("graphviz")
+
+    monkeypatch.setattr(mermaid_render.shutil, "which", lambda name: None)
+    assert "not found" in mermaid_render.check_renderer("mmdc")
+    monkeypatch.setattr(mermaid_render, "check_renderer",
+                        lambda name: None if name == "mmdc" else "missing")
+    assert mermaid_render.resolve_renderer("auto") == "mmdc"
+    with pytest.raises(mermaid_render.MermaidRenderError, match="libromorph\[diagrams\]"):
+        mermaid_render.resolve_renderer("mermaid-js")
+
+
+def test_normalize_svg_sizes_percentage_width():
+    from libromorph.render_utils import normalize_svg
+    svg = normalize_svg('<svg width="100%" viewBox="0 0 320 120" xmlns="http://www.w3.org/2000/svg"></svg>')
+    assert 'width="320"' in svg and 'height="120"' in svg and "100%" not in svg
+
+
 def test_callout_filter():
     md_input = """
 ::: note
@@ -238,3 +305,4 @@ def test_full_demo_book_build():
         assert os.path.exists(os.path.join(results["html"], "index.html"))
         assert os.path.exists(os.path.join(results["html"], "book-index.html"))
         assert os.path.exists(os.path.join(results["html"], "assets", "js", "abc.js"))
+        assert os.path.exists(os.path.join(results["html"], "assets", "js", "mermaid-init.js"))

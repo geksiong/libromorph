@@ -10,7 +10,8 @@ import shutil
 from .config import BookConfig
 from .builder import BookBuilder, BuildError
 from .server import run_preview_server
-from .abc_render import RENDERER_CHOICES
+from .abc_render import RENDERER_CHOICES as ABC_RENDERER_CHOICES
+from .mermaid_render import RENDERER_CHOICES as MERMAID_RENDERER_CHOICES
 
 
 THEMES = {
@@ -43,8 +44,10 @@ def create_parser() -> argparse.ArgumentParser:
     build_parser.add_argument("--lang", help="Override book language code (e.g. en, ja, zh)")
     build_parser.add_argument("--no-toc", action="store_true", help="Disable Table of Contents")
     build_parser.add_argument("--no-index", action="store_true", help="Disable automatic alphabetical Index generation")
-    build_parser.add_argument("--abc-renderer", choices=RENDERER_CHOICES,
+    build_parser.add_argument("--abc-renderer", choices=ABC_RENDERER_CHOICES,
                               help="Engine for rendering ABC music scores to SVG in EPUB (default: auto)")
+    build_parser.add_argument("--mermaid-renderer", choices=MERMAID_RENDERER_CHOICES,
+                              help="Engine for rendering Mermaid diagrams to SVG in EPUB (default: auto)")
 
     # Command: init
     init_parser = subparsers.add_parser("init", help="Initialize a new book project or scaffold a demo book.")
@@ -142,6 +145,8 @@ def main():
             overrides["index_enabled"] = False
         if args.abc_renderer:
             overrides["abc_renderer"] = args.abc_renderer
+        if args.mermaid_renderer:
+            overrides["mermaid_renderer"] = args.mermaid_renderer
 
         try:
             config = BookConfig.load(book_dir, overrides=overrides)

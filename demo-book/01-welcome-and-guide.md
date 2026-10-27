@@ -34,6 +34,17 @@ K:D
 F F G A | A G F E | D D E F | F3/2 E/ E2 |
 ```
 
+10. **Diagrams**: Fenced `mermaid` code blocks are drawn as [Mermaid]{.index entry="Diagrams!Mermaid"} diagrams, such as this overview of the LibroMorph build pipeline:
+
+```{.mermaid alt="LibroMorph build pipeline: Markdown chapters flow through the indexer and Pandoc with the Lua filter into EPUB and HTML outputs"}
+flowchart LR
+    md[Markdown chapters] --> idx[Indexer]
+    idx --> pandoc[Pandoc + Lua filter]
+    pandoc --> epub[EPUB 3]
+    pandoc --> html[HTML web reader]
+    svg[SVG renderers] -.-> epub
+```
+
 ::: tip
 Try switching between color modes (Light, Dark, and Sepia) using the dropdown in the top navigation bar!
 :::

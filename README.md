@@ -20,7 +20,8 @@
 - ⇅ **Vertical Writing & Tate-chū-yoko**: Full support for vertical columns and upright numbers in vertical text via `{tcy:42}` and `[2026]{.tcy}`.
 - 📝 **Interactive Self-Check Quizzes**: Write quizzes using simple markdown lists (`::: quiz` and `- [x]`). Generates animated interactive quiz widgets for HTML and `<details>` answer reveals for EPUB readers.
 - 📐 **Mathematical Formulas**: LaTeX formulas (`$E = mc^2$` and `$$\dots$$`) rendered to standards-compliant **MathML** for EPUB 3, and interactive **MathJax 3** for web readers.
-- 🎵 **ABC Music Notation**: Fenced ` ```abc ` code blocks are rendered as sheet music with [abcjs](https://www.abcjs.net) in web readers (with a "View ABC Source" toggle), and shown as titled notation blocks in EPUB.
+- 🎵 **ABC Music Notation**: Fenced ` ```abc ` code blocks are rendered as sheet music with [abcjs](https://www.abcjs.net) in web readers (with a "View ABC Source" toggle), and pre-rendered to SVG images for EPUB with your choice of abcjs, abcm2ps or abc2svg.
+- 🔀 **Mermaid Diagrams**: Fenced ` ```mermaid ` code blocks are drawn with [Mermaid](https://mermaid.js.org) in web readers (following the light/dark color mode), and pre-rendered to SVG images for EPUB with mermaid.js or mermaid-cli.
 
 ---
 
@@ -114,6 +115,9 @@ toc:
 index:
   enabled: true
   title: "Index of Subjects and Names"
+
+abc_renderer: auto     # EPUB music scores: auto | abcjs | abcm2ps | abc2svg | none
+mermaid_renderer: auto # EPUB diagrams: auto | mermaid-js | mmdc | none
 ```
 
 ---
@@ -205,6 +209,24 @@ Web readers render scores in the browser with abcjs. For EPUB, scores are render
 | `none`    | show the ABC source as text in EPUB                                         |
 
 Dependencies are checked before rendering; an explicitly chosen renderer that is unavailable fails the build with an install hint.
+
+### 8. Mermaid Diagrams
+~~~markdown
+```{.mermaid alt="Order flow: cart to checkout to confirmation"}
+flowchart LR
+    cart[Cart] --> checkout[Checkout] --> done[Confirmation]
+```
+~~~
+Plain ` ```mermaid ` works too; the optional `alt` attribute provides the accessible description (default: "Diagram"). Web readers load mermaid.js only on pages that contain diagrams. For EPUB, diagrams are rendered to SVG images at build time with the engine chosen by `mermaid_renderer` in `book.yaml` or `--mermaid-renderer`:
+
+| Renderer     | Requirements                                                              |
+|--------------|---------------------------------------------------------------------------|
+| `mermaid-js` | `pip install 'libromorph[diagrams]'` plus Chrome/Chromium (or `playwright install chromium`); network access to load mermaid.js. Matches the web reader. |
+| `mmdc`       | `npm install -g @mermaid-js/mermaid-cli` (uses your system Chrome when available) |
+| `auto`       | *(default)* first available of the above; falls back to text with a warning |
+| `none`       | show the Mermaid source as text in EPUB                                  |
+
+EPUB diagrams use plain SVG text labels (no HTML `foreignObject`) so they display in e-readers.
 
 ---
 

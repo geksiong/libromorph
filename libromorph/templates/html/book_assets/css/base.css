@@ -398,6 +398,45 @@ ruby rp {
   white-space: pre;
 }
 
+/* Mermaid Diagrams */
+.mermaid-diagram {
+  margin: 1.6em 0;
+  text-align: center;
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  overflow-x: auto;
+}
+.mermaid-render svg {
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-diagram-epub img.mermaid-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.mermaid-source {
+  text-align: left;
+  margin: 0;
+  padding: 0.8em 1em;
+  background: #f8fafc;
+  color: #1e293b;
+  border-radius: 4px;
+  font-size: 0.88em;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+.mermaid-source code {
+  background: transparent;
+  color: inherit;
+}
+.mermaid-error {
+  color: #b91c1c;
+  font-style: italic;
+}
+
 /* Writing Mode Islands: mix vertical blocks in horizontal docs and vice versa */
 .vertical {
   writing-mode: vertical-rl;

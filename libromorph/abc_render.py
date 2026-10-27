@@ -7,20 +7,19 @@ Supported renderers (selected via `abc_renderer` in book.yaml or --abc-renderer)
   - abc2svg : the abc2svg command-line tool (npm package, needs a JS interpreter)
   - auto    : first available of the above, in that order
   - none    : skip rendering; EPUB shows the ABC source as text
-
-Rendered SVGs are written as `<sha1(abc text)>-<n>.svg` so the Lua filter can
-match each fenced ```abc block to its images with pandoc.utils.sha1.
 """
 
 import glob
-import hashlib
-import json
 import os
 import re
 import shutil
 import subprocess
 import tempfile
-from typing import Dict, List, Optional
+from typing import List, Optional
+
+from .render_utils import (
+    RenderError, check_playwright, content_hash, extract_code_blocks, render_in_browser, write_svgs
+)
 
 
 ABCJS_VERSION = "6.7.1"
@@ -36,48 +35,27 @@ INSTALL_HINTS = {
     "abc2svg": "npm install -g abc2svg (also needs node, qjs or another JS interpreter on PATH)",
 }
 
-# System browsers Playwright can drive when its own Chromium isn't downloaded
-SYSTEM_BROWSERS = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
 
-
-class AbcRenderError(Exception):
+class AbcRenderError(RenderError):
     pass
 
 
 def abc_hash(abc_text: str) -> str:
-    return hashlib.sha1(abc_text.encode("utf-8")).hexdigest()
+    return content_hash(abc_text)
+
+
+def extract_abc_blocks(markdown: str) -> List[str]:
+    """Returns the text of every ```abc fenced block, exactly as Pandoc parses it."""
+    return extract_code_blocks(markdown, "abc")
 
 
 # ---------------------------------------------------------------------------
 # Dependency checks: each returns None when usable, or a reason string
 # ---------------------------------------------------------------------------
 
-def _find_browser(p) -> Optional[Dict[str, str]]:
-    """Returns launch kwargs for an available Chromium-family browser, given a running Playwright."""
-    bundled = p.chromium.executable_path
-    if bundled and os.path.exists(bundled):
-        return {}
-    for name in SYSTEM_BROWSERS:
-        path = shutil.which(name)
-        if path:
-            return {"executable_path": path}
-    return None
-
-
 def check_renderer(name: str) -> Optional[str]:
     if name == "abcjs":
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            return "Python package 'playwright' is not installed"
-        try:
-            with sync_playwright() as p:
-                launch_args = _find_browser(p)
-        except Exception as e:
-            return f"Playwright failed to start ({e})"
-        if launch_args is None:
-            return "no Chromium/Chrome browser found for Playwright"
-        return None
+        return check_playwright()
     if name == "abcm2ps":
         return None if shutil.which("abcm2ps") else "'abcm2ps' not found on PATH"
     if name == "abc2svg":
@@ -121,93 +99,36 @@ def resolve_renderer(choice: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
-# Extraction
-# ---------------------------------------------------------------------------
-
-def _walk_code_blocks(node, found: List[str]):
-    if isinstance(node, dict):
-        if node.get("t") == "CodeBlock":
-            (_, classes, _), text = node["c"]
-            if "abc" in classes:
-                found.append(text)
-            return
-        for v in node.values():
-            _walk_code_blocks(v, found)
-    elif isinstance(node, list):
-        for v in node:
-            _walk_code_blocks(v, found)
-
-
-def extract_abc_blocks(markdown: str) -> List[str]:
-    """Returns the text of every ```abc fenced block, exactly as Pandoc parses it."""
-    if "abc" not in markdown:
-        return []
-    res = subprocess.run(["pandoc", "-f", "markdown", "-t", "json"],
-                         input=markdown, capture_output=True, text=True)
-    if res.returncode != 0:
-        raise AbcRenderError(f"Pandoc failed while scanning for ABC blocks:\n{res.stderr}")
-    found: List[str] = []
-    _walk_code_blocks(json.loads(res.stdout).get("blocks", []), found)
-    return found
-
-
-# ---------------------------------------------------------------------------
 # Renderers: each takes a list of ABC texts and returns a list of SVG lists
 # ---------------------------------------------------------------------------
 
 _SVG_RE = re.compile(r"<svg\b.*?</svg>", re.S)
 
-
-def _normalize_svg(svg: str) -> str:
-    """Ensures a standalone SVG has an XML namespace and a viewBox so it scales as an <img>."""
-    svg = re.sub(r"<\?xml[^>]*\?>|<!DOCTYPE[^>]*>|<!--.*?-->", "", svg, flags=re.S).strip()
-    open_tag = re.match(r"<svg\b[^>]*>", svg).group(0)
-    new_tag = open_tag
-    if "xmlns=" not in new_tag:
-        new_tag = new_tag.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"', 1)
-    if "viewBox" not in new_tag:
-        w = re.search(r'\bwidth="([\d.]+)(?:px)?"', new_tag)
-        h = re.search(r'\bheight="([\d.]+)(?:px)?"', new_tag)
-        if w and h:
-            new_tag = new_tag.replace("<svg", f'<svg viewBox="0 0 {w.group(1)} {h.group(1)}"', 1)
-    return svg.replace(open_tag, new_tag, 1)
+_ABCJS_RENDER_JS = """(texts) => texts.map((abc) => {
+    const div = document.createElement("div");
+    document.body.appendChild(div);
+    ABCJS.renderAbc(div, abc, {
+        staffwidth: 700, paddingtop: 10, paddingbottom: 10, add_classes: true
+    });
+    const out = Array.from(div.querySelectorAll("svg")).map((svg) => {
+        const box = svg.getBoundingClientRect();
+        if (!svg.getAttribute("viewBox")) {
+            svg.setAttribute("viewBox", `0 0 ${box.width} ${box.height}`);
+        }
+        svg.setAttribute("width", box.width);
+        svg.setAttribute("height", box.height);
+        return new XMLSerializer().serializeToString(svg);
+    });
+    div.remove();
+    return out;
+})"""
 
 
 def _render_abcjs(texts: List[str]) -> List[List[str]]:
-    from playwright.sync_api import sync_playwright
-
-    with sync_playwright() as p:
-        launch_args = _find_browser(p)
-        if launch_args is None:
-            raise AbcRenderError("no Chromium/Chrome browser found for Playwright")
-        browser = p.chromium.launch(**launch_args)
-        try:
-            page = browser.new_page()
-            page.set_content("<!DOCTYPE html><html><body></body></html>")
-            try:
-                page.add_script_tag(url=ABCJS_CDN_URL)
-            except Exception as e:
-                raise AbcRenderError(f"Could not load abcjs from {ABCJS_CDN_URL}: {e}")
-            return page.evaluate("""(texts) => texts.map((abc) => {
-                const div = document.createElement("div");
-                document.body.appendChild(div);
-                ABCJS.renderAbc(div, abc, {
-                    staffwidth: 700, paddingtop: 10, paddingbottom: 10, add_classes: true
-                });
-                const out = Array.from(div.querySelectorAll("svg")).map((svg) => {
-                    const box = svg.getBoundingClientRect();
-                    if (!svg.getAttribute("viewBox")) {
-                        svg.setAttribute("viewBox", `0 0 ${box.width} ${box.height}`);
-                    }
-                    svg.setAttribute("width", box.width);
-                    svg.setAttribute("height", box.height);
-                    return new XMLSerializer().serializeToString(svg);
-                });
-                div.remove();
-                return out;
-            })""", texts)
-        finally:
-            browser.close()
+    try:
+        return render_in_browser(ABCJS_CDN_URL, _ABCJS_RENDER_JS, texts)
+    except RenderError as e:
+        raise AbcRenderError(f"abcjs failed: {e}")
 
 
 def _render_abcm2ps(texts: List[str]) -> List[List[str]]:
@@ -259,13 +180,11 @@ def render_abc_blocks(renderer: str, texts: List[str], out_dir: str) -> int:
     unique = list(dict.fromkeys(texts))
     if not unique:
         return 0
-    os.makedirs(out_dir, exist_ok=True)
     print(f"[LibroMorph] Rendering {len(unique)} ABC score(s) to SVG with {renderer}...")
-    for abc, svgs in zip(unique, _RENDER_FUNCS[renderer](unique)):
-        if not svgs:
-            raise AbcRenderError(f"{renderer} produced no SVG output for score:\n{abc[:200]}")
-        digest = abc_hash(abc)
-        for n, svg in enumerate(svgs, 1):
-            with open(os.path.join(out_dir, f"{digest}-{n}.svg"), "w", encoding="utf-8") as f:
-                f.write(_normalize_svg(svg))
+    try:
+        write_svgs(out_dir, unique, _RENDER_FUNCS[renderer](unique), renderer)
+    except AbcRenderError:
+        raise
+    except RenderError as e:
+        raise AbcRenderError(str(e))
     return len(unique)

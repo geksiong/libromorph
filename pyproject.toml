@@ -21,6 +21,9 @@ libromorph = "libromorph.cli:main"
 music = [
     "playwright>=1.40",
 ]
+diagrams = [
+    "playwright>=1.40",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

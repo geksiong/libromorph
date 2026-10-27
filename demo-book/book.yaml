@@ -1,0 +1,20 @@
+title: "The Polyglot Codex"
+subtitle: "A Journey Through Mathematics, Japanese Literature, and Classical Philosophy"
+author: "Antigravity Research Group"
+language: "en"
+date: "2026-10-27"
+publisher: "LibroMorph Editions"
+rights: "Creative Commons Attribution 4.0 International (CC BY 4.0)"
+description: "A comprehensive demonstration book showcasing Pandoc-powered publishing with LibroMorph: featuring typography themes, mathematical formulas, Japanese furigana ruby text, vertical CJK layouts, interactive quizzes, automated table of contents, and cross-referenced index creation."
+theme: "technical"
+vertical_layout: false
+
+toc:
+  enabled: true
+  depth: 3
+
+index:
+  enabled: true
+  title: "Index of Subjects and Names"
+
+math: "auto"

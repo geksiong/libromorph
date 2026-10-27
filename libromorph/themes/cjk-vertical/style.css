@@ -1,0 +1,107 @@
+/* Theme: CJK Vertical (Japanese Light Novels, Chinese Classics, Vertical-RL) */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap');
+
+html {
+  height: 100%;
+}
+
+body {
+  font-family: "Noto Serif JP", "Noto Serif SC", "Hiragino Mincho ProN", "Yu Mincho", "Source Han Serif", serif;
+  font-size: 1.1em;
+  line-height: 2.1;
+  color: #1a1918;
+  background-color: #fcf9f2;
+  margin: 0;
+  padding: 0;
+  
+  /* Vertical Writing Mode */
+  writing-mode: vertical-rl;
+  -webkit-writing-mode: vertical-rl;
+  -epub-writing-mode: vertical-rl;
+  text-orientation: mixed;
+  -webkit-text-orientation: mixed;
+}
+
+.reader-container, .content-wrapper, main {
+  height: calc(100vh - 5rem);
+  padding: 2.5rem 3rem;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: 800px;
+}
+
+/* Headings in vertical text */
+h1, h2, h3, h4 {
+  font-weight: 700;
+  color: #8b1e1e;
+  letter-spacing: 0.15em;
+  margin: 0 1.2em 0 1.2em;
+}
+
+h1 {
+  font-size: 2em;
+  border-left: 3px solid #8b1e1e;
+  padding-left: 0.5em;
+  margin-left: 2em;
+}
+
+h2 {
+  font-size: 1.5em;
+  border-left: 2px solid #b84b4b;
+  padding-left: 0.4em;
+  margin-left: 1.6em;
+}
+
+p {
+  margin: 0 0.8em 0 0.8em;
+  text-indent: 1em;
+  text-align: justify;
+}
+
+/* Ruby in vertical layout: Furigana placed on the right side of characters */
+ruby {
+  ruby-position: right;
+  -webkit-ruby-position: after;
+}
+ruby rt {
+  font-size: 0.5em;
+  line-height: 1;
+  color: #55514e;
+  letter-spacing: 0;
+}
+
+/* Tate-chu-yoko: Keeps numbers upright */
+.tcy {
+  -webkit-text-combine: horizontal;
+  -ms-text-combine-horizontal: all;
+  text-combine-upright: all;
+  display: inline-block;
+  margin: 0 0.1em;
+  line-height: 1;
+}
+
+/* Vertical callouts */
+.callout {
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  margin: 1.5em 0;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+/* Quizzes in vertical view: render horizontally for readability */
+.quiz-card {
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  max-width: 38rem;
+  margin: 1.5em 0;
+}
+
+/* Math in vertical mode: render horizontally */
+.math.display, math {
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  display: inline-block;
+  vertical-align: middle;
+}

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="{{ config.language }}" data-color-mode="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ current_chapter.title }} · {{ config.title }}</title>
+  
+  <!-- LibroMorph CSS -->
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/reader.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
+  
+  <!-- MathJax for formula rendering -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body class="{% if config.vertical_layout %}mode-vertical-rl{% else %}mode-horizontal-tb{% endif %}">
+
+  <!-- Top Navigation Bar -->
+  <header class="reader-topbar">
+    <div class="topbar-left">
+      <button type="button" class="btn-icon" id="lm-sidebar-open" title="Table of Contents">
+        ☰ <span style="margin-left:6px;">Contents</span>
+      </button>
+      <a href="index.html" class="btn-icon" title="Book Overview / Cover">🏠 Home</a>
+      <span class="book-nav-title" title="{{ config.title }}">{{ config.title }}</span>
+    </div>
+
+    <div class="topbar-right">
+      <!-- Layout Mode (Horizontal / Vertical) -->
+      <button type="button" class="btn-icon" id="lm-toggle-layout" title="Toggle Writing Mode (Horizontal / Vertical)">
+        {% if config.vertical_layout %}⇄ Switch to Horizontal{% else %}⇅ Switch to Vertical{% endif %}
+      </button>
+
+      <!-- Font Size Adjuster -->
+      <button type="button" class="btn-icon" id="lm-font-dec" title="Decrease Font Size">A−</button>
+      <button type="button" class="btn-icon" id="lm-font-inc" title="Increase Font Size">A+</button>
+
+      <!-- Color Mode -->
+      <select class="select-control" id="lm-color-select" title="Color Mode">
+        <option value="auto">🌓 Auto</option>
+        <option value="light">☀️ Light</option>
+        <option value="dark">🌙 Dark</option>
+        <option value="sepia">📜 Sepia</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- Sidebar Drawer: Table of Contents -->
+  <aside class="reader-sidebar" id="lm-sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Table of Contents</span>
+      <button type="button" class="btn-icon" id="lm-sidebar-close">✕</button>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" class="search-input" id="lm-toc-search" placeholder="Filter chapters...">
+    </div>
+    <div class="sidebar-content">
+      <ul class="sidebar-toc-list">
+        <li class="sidebar-toc-item">
+          <a href="index.html">📖 Book Overview &amp; Cover</a>
+        </li>
+        {% for ch in chapters %}
+        <li class="sidebar-toc-item {% if ch.html_filename == current_chapter.html_filename %}active{% endif %}">
+          <a href="{{ ch.html_filename }}">
+            {{ ch.number }}. {{ ch.title }}
+          </a>
+        </li>
+        {% endfor %}
+        {% if has_index %}
+        <li class="sidebar-toc-item {% if current_chapter.html_filename == 'book-index.html' %}active{% endif %}">
+          <a href="book-index.html">🏷 Index</a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+  </aside>
+  <div class="reader-backdrop" id="lm-backdrop"></div>
+
+  <!-- Chapter Content Area -->
+  <main class="reader-container">
+    <article class="reader-content">
+      {{ content }}
+    </article>
+
+    <!-- Chapter Navigation Footer -->
+    <nav class="chapter-nav-footer">
+      {% if prev_chapter %}
+      <a href="{{ prev_chapter.html_filename }}" class="nav-card prev">
+        <span class="nav-card-label">← Previous Chapter</span>
+        <span class="nav-card-title">{{ prev_chapter.title }}</span>
+      </a>
+      {% else %}
+      <a href="index.html" class="nav-card prev">
+        <span class="nav-card-label">← Back to</span>
+        <span class="nav-card-title">Book Overview</span>
+      </a>
+      {% endif %}
+
+      {% if next_chapter %}
+      <a href="{{ next_chapter.html_filename }}" class="nav-card next">
+        <span class="nav-card-label">Next Chapter →</span>
+        <span class="nav-card-title">{{ next_chapter.title }}</span>
+      </a>
+      {% elif has_index and current_chapter.html_filename != 'book-index.html' %}
+      <a href="book-index.html" class="nav-card next">
+        <span class="nav-card-label">Next →</span>
+        <span class="nav-card-title">Index</span>
+      </a>
+      {% endif %}
+    </nav>
+  </main>
+
+  <!-- Reader JavaScript -->
+  <script src="assets/js/reader.js"></script>
+  <script src="assets/js/search.js"></script>
+  <script src="assets/js/quiz.js"></script>
+</body>
+</html>

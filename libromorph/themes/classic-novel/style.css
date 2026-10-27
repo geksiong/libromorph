@@ -1,0 +1,97 @@
+/* Theme: Classic Novel (Literary Fiction, Elegance, First-Line Indents) */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap');
+
+body {
+  font-family: "Merriweather", Georgia, "Times New Roman", serif;
+  font-size: 1.08em;
+  line-height: 1.78;
+  color: #2b2825;
+  background-color: #fbfaf6;
+  margin: 0;
+  padding: 0;
+  text-rendering: optimizeLegibility;
+}
+
+.reader-container, .content-wrapper, main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.8rem;
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+  font-family: "Cinzel", "Merriweather", Georgia, serif;
+  color: #1a1613;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+h1 {
+  font-size: 2.1em;
+  margin-top: 2.5em;
+  margin-bottom: 1.4em;
+  border-bottom: none;
+  text-transform: uppercase;
+}
+h1::after {
+  content: "✦ ✦ ✦";
+  display: block;
+  font-size: 0.45em;
+  letter-spacing: 0.4em;
+  color: #8c7355;
+  margin-top: 1.2em;
+}
+
+h2 {
+  font-size: 1.5em;
+  margin-top: 2.2em;
+  margin-bottom: 1em;
+}
+
+/* Paragraph Indentation typical of classic novels */
+p {
+  margin-top: 0;
+  margin-bottom: 0;
+  text-indent: 1.8em;
+  text-align: justify;
+  hyphens: auto;
+}
+
+/* The first paragraph after any heading or divider should NOT be indented */
+h1 + p, h2 + p, h3 + p, h4 + p, hr + p, .callout + p, .quiz-card + p {
+  text-indent: 0;
+}
+
+/* Dropcap for chapter openings */
+.dropcap, h1 + p::first-letter {
+  float: left;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 3.6em;
+  line-height: 0.8;
+  padding-top: 4px;
+  padding-right: 10px;
+  color: #7b2c24;
+  font-weight: 700;
+}
+
+/* Ornamental Scene Breaks */
+hr {
+  border: 0;
+  text-align: center;
+  height: 2em;
+  margin: 2.5em 0;
+}
+hr::before {
+  content: "❦ ❦ ❦";
+  font-size: 1.1em;
+  color: #9c8266;
+}
+
+blockquote {
+  margin: 1.8em 2em;
+  font-style: italic;
+  color: #4a433c;
+  border-left: 2px solid #8c7355;
+  padding-left: 1.2em;
+}

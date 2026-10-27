@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="{{ config.language }}" data-color-mode="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ config.title }}</title>
+  
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/reader.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
+  <style>
+    .cover-landing {
+      max-width: 50rem;
+      margin: 2rem auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .cover-card {
+      margin-bottom: 2.5rem;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.18);
+      border-radius: 8px;
+      overflow: hidden;
+      max-width: 380px;
+      transition: transform 0.3s ease;
+    }
+    .cover-card:hover {
+      transform: translateY(-4px) scale(1.01);
+    }
+    .cover-image {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .book-header-title {
+      font-size: 2.5em;
+      margin: 0.5em 0 0.2em 0;
+      color: inherit;
+    }
+    .book-header-subtitle {
+      font-size: 1.25em;
+      color: #64748b;
+      margin: 0 0 1.2em 0;
+      font-weight: 400;
+    }
+    .book-meta {
+      font-size: 0.95em;
+      color: #64748b;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    .btn-start-reading {
+      display: inline-block;
+      padding: 14px 32px;
+      background: #2563eb;
+      color: #ffffff !important;
+      font-size: 1.1em;
+      font-weight: 600;
+      border-radius: 30px;
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+      transition: all 0.2s;
+    }
+    .btn-start-reading:hover {
+      background: #1d4ed8;
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+      transform: translateY(-2px);
+    }
+    .landing-toc {
+      width: 100%;
+      margin-top: 3.5rem;
+      text-align: left;
+      border-top: 1px solid var(--lm-border-color);
+      padding-top: 2rem;
+    }
+    .toc-title {
+      font-size: 1.5em;
+      margin-bottom: 1.2em;
+    }
+    .toc-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .toc-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border: 1px solid var(--lm-border-color);
+      border-radius: 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s;
+    }
+    .toc-row:hover {
+      border-color: #2563eb;
+      background: rgba(37, 99, 235, 0.04);
+      transform: translateX(4px);
+    }
+    .toc-ch-num {
+      font-weight: bold;
+      color: #2563eb;
+      margin-right: 12px;
+    }
+    .toc-ch-name {
+      font-weight: 500;
+      flex: 1;
+    }
+  </style>
+</head>
+<body class="mode-horizontal-tb">
+
+  <header class="reader-topbar">
+    <div class="topbar-left">
+      <span class="book-nav-title">{{ config.title }}</span>
+    </div>
+    <div class="topbar-right">
+      <select class="select-control" id="lm-color-select" title="Color Mode">
+        <option value="auto">🌓 Auto</option>
+        <option value="light">☀️ Light</option>
+        <option value="dark">🌙 Dark</option>
+        <option value="sepia">📜 Sepia</option>
+      </select>
+    </div>
+  </header>
+
+  <main class="cover-landing">
+    {% if cover_filename %}
+    <div class="cover-card">
+      <img src="{{ cover_filename }}" alt="Cover for {{ config.title }}" class="cover-image">
+    </div>
+    {% endif %}
+
+    <h1 class="book-header-title">{{ config.title }}</h1>
+    {% if config.subtitle %}
+    <p class="book-header-subtitle">{{ config.subtitle }}</p>
+    {% endif %}
+
+    <div class="book-meta">
+      <div>By <strong>{{ config.author }}</strong></div>
+      {% if config.date %}<div>Published: {{ config.date }}</div>{% endif %}
+      {% if config.description %}<p style="max-width: 36rem; margin: 1em auto; text-align: center;">{{ config.description }}</p>{% endif %}
+    </div>
+
+    {% if chapters %}
+    <a href="{{ chapters[0].html_filename }}" class="btn-start-reading">
+      🚀 Start Reading &rarr;
+    </a>
+    {% endif %}
+
+    <section class="landing-toc">
+      <h2 class="toc-title">Table of Contents</h2>
+      <div class="toc-grid">
+        {% for ch in chapters %}
+        <a href="{{ ch.html_filename }}" class="toc-row">
+          <span class="toc-ch-num">Chapter {{ ch.number }}</span>
+          <span class="toc-ch-name">{{ ch.title }}</span>
+          <span style="color:#64748b;">&rarr;</span>
+        </a>
+        {% endfor %}
+        {% if has_index %}
+        <a href="book-index.html" class="toc-row">
+          <span class="toc-ch-num">🏷</span>
+          <span class="toc-ch-name">Alphabetical Index</span>
+          <span style="color:#64748b;">&rarr;</span>
+        </a>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/reader.js"></script>
+</body>
+</html>

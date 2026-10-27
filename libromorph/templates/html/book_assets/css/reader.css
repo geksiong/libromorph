@@ -1,0 +1,293 @@
+/* reader.css: UI navigation shell, drawer, topbar, responsive controls */
+
+:root {
+  --lm-topbar-height: 56px;
+  --lm-sidebar-width: 310px;
+  --lm-bg-color: #ffffff;
+  --lm-text-color: #1e293b;
+  --lm-border-color: #e2e8f0;
+}
+
+/* Dark mode colors */
+[data-color-mode="dark"] {
+  --lm-bg-color: #121316 !important;
+  --lm-text-color: #e2e8f0 !important;
+  --lm-border-color: #27272a !important;
+  background-color: #121316 !important;
+  color: #e2e8f0 !important;
+}
+[data-color-mode="dark"] body {
+  background-color: #121316 !important;
+  color: #e2e8f0 !important;
+}
+[data-color-mode="dark"] .callout {
+  background: #18191d !important;
+  color: #e2e8f0 !important;
+}
+[data-color-mode="dark"] .quiz-card {
+  background: #18191d !important;
+  border-color: #2e3138 !important;
+}
+[data-color-mode="dark"] .quiz-header {
+  background: #20232a !important;
+  color: #f1f5f9 !important;
+}
+[data-color-mode="dark"] .quiz-option-btn {
+  background: #20232a !important;
+  border-color: #333842 !important;
+  color: #e2e8f0 !important;
+}
+[data-color-mode="dark"] .quiz-opt-letter {
+  background: #333842 !important;
+  color: #e2e8f0 !important;
+}
+[data-color-mode="dark"] pre {
+  background: #090a0c !important;
+}
+
+/* Sepia mode colors */
+[data-color-mode="sepia"] {
+  --lm-bg-color: #f6efe2 !important;
+  --lm-text-color: #3c3226 !important;
+  --lm-border-color: #dfd2be !important;
+  background-color: #f6efe2 !important;
+  color: #3c3226 !important;
+}
+[data-color-mode="sepia"] body {
+  background-color: #f6efe2 !important;
+  color: #3c3226 !important;
+}
+
+/* Top Navigation Bar */
+.reader-topbar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--lm-topbar-height);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--lm-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.2rem;
+  z-index: 1000;
+}
+[data-color-mode="dark"] .reader-topbar {
+  background: rgba(18, 19, 22, 0.94);
+}
+[data-color-mode="sepia"] .reader-topbar {
+  background: rgba(246, 239, 226, 0.94);
+}
+
+.topbar-left, .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--lm-border-color);
+  background: transparent;
+  color: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+.btn-icon:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+[data-color-mode="dark"] .btn-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.book-nav-title {
+  font-weight: 600;
+  font-size: 0.95em;
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.select-control {
+  height: 34px;
+  border: 1px solid var(--lm-border-color);
+  background: transparent;
+  color: inherit;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 0.88em;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Sidebar Drawer (Table of Contents) */
+.reader-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--lm-sidebar-width);
+  background: #ffffff;
+  border-right: 1px solid var(--lm-border-color);
+  z-index: 1100;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+[data-color-mode="dark"] .reader-sidebar {
+  background: #18191d;
+}
+[data-color-mode="sepia"] .reader-sidebar {
+  background: #fbf6ec;
+}
+.reader-sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-header {
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--lm-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sidebar-title {
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.sidebar-search {
+  padding: 0.75rem 1.2rem;
+  border-bottom: 1px solid var(--lm-border-color);
+}
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--lm-border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.9em;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+}
+.sidebar-toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.sidebar-toc-item a {
+  display: block;
+  padding: 8px 1.4rem;
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.95em;
+  transition: background 0.15s;
+}
+.sidebar-toc-item a:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.sidebar-toc-item.active a {
+  font-weight: 600;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  border-left: 3px solid #2563eb;
+}
+
+.reader-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1050;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.reader-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Chapter Bottom Navigation Links */
+.chapter-nav-footer {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--lm-border-color);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.nav-card {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 18px;
+  border: 1px solid var(--lm-border-color);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s;
+  min-width: 140px;
+}
+.nav-card:hover {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.04);
+  transform: translateY(-2px);
+}
+.nav-card-label {
+  font-size: 0.8em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+}
+.nav-card-title {
+  font-weight: 600;
+  font-size: 1em;
+  margin-top: 4px;
+}
+.nav-card.next {
+  text-align: right;
+  margin-left: auto;
+}
+
+/* Vertical layout mode override */
+body.mode-vertical-rl {
+  writing-mode: vertical-rl !important;
+  -webkit-writing-mode: vertical-rl !important;
+  text-orientation: mixed !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+body.mode-vertical-rl .reader-container,
+body.mode-vertical-rl .content-wrapper,
+body.mode-vertical-rl main {
+  height: calc(100vh - var(--lm-topbar-height) - 4rem) !important;
+  max-width: none !important;
+  max-height: 820px !important;
+  display: inline-block !important;
+}
+body.mode-vertical-rl .reader-topbar {
+  writing-mode: horizontal-tb !important;
+}
+body.mode-vertical-rl .reader-sidebar {
+  writing-mode: horizontal-tb !important;
+}
+body.mode-vertical-rl .chapter-nav-footer {
+  writing-mode: horizontal-tb !important;
+}

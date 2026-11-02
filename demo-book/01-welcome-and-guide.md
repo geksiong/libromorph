@@ -45,6 +45,15 @@ flowchart LR
     svg[SVG renderers] -.-> epub
 ```
 
+11. **Chord Diagrams**: Fenced `chord` code blocks draw [chord diagrams]{.index entry="Music!Chord Diagrams"} for guitar, ukulele and other fretted instruments, with fingerings and barres:
+
+```chord
+C    x32010  fingers=x32010
+G    320003  fingers=210003
+Am   x02210  fingers=x02310
+F    133211  fingers=134211
+```
+
 ::: tip
 Try switching between color modes (Light, Dark, and Sepia) using the dropdown in the top navigation bar!
 :::

@@ -437,6 +437,60 @@ ruby rp {
   font-style: italic;
 }
 
+/* Chord Diagrams: inline SVG in HTML (drawn in currentColor), SVG images in EPUB */
+.chord-diagrams {
+  margin: 1.6em 0;
+  text-align: center;
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4em 1.2em;
+}
+.chord-diagrams-epub {
+  display: block;
+}
+.chord-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+/* Finger numbers sit on filled dots, so draw them in the page background color */
+.chord-diagram .chord-finger {
+  fill: var(--lm-bg-color, #fff);
+}
+.chord-diagrams-epub img.chord-svg {
+  display: inline-block;
+  max-width: 30%;
+  height: auto;
+  margin: 0 0.4em 0.6em;
+  vertical-align: top;
+}
+.chord-diagrams-error {
+  display: block;
+}
+.chord-source {
+  text-align: left;
+  margin: 0;
+  padding: 0.8em 1em;
+  background: #f8fafc;
+  color: #1e293b;
+  border-radius: 4px;
+  font-size: 0.88em;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+}
+.chord-source code {
+  background: transparent;
+  color: inherit;
+}
+.chord-error {
+  color: #b91c1c;
+  font-style: italic;
+}
+
 /* Writing Mode Islands: mix vertical blocks in horizontal docs and vice versa */
 .vertical {
   writing-mode: vertical-rl;

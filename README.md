@@ -22,6 +22,7 @@
 - 📐 **Mathematical Formulas**: LaTeX formulas (`$E = mc^2$` and `$$\dots$$`) rendered to standards-compliant **MathML** for EPUB 3, and interactive **MathJax 3** for web readers.
 - 🎵 **ABC Music Notation**: Fenced ` ```abc ` code blocks are rendered as sheet music with [abcjs](https://www.abcjs.net) in web readers (with a "View ABC Source" toggle), and pre-rendered to SVG images for EPUB with your choice of abcjs, abcm2ps or abc2svg.
 - 🔀 **Mermaid Diagrams**: Fenced ` ```mermaid ` code blocks are drawn with [Mermaid](https://mermaid.js.org) in web readers (following the light/dark color mode), and pre-rendered to SVG images for EPUB with mermaid.js or mermaid-cli.
+- 🎸 **Chord Diagrams**: Fenced ` ```chord ` code blocks draw fretboard chord diagrams (guitar, ukulele or any fretted instrument) as SVG, with fingerings and barres, with no extra dependencies.
 
 ---
 
@@ -227,6 +228,24 @@ Plain ` ```mermaid ` works too; the optional `alt` attribute provides the access
 | `none`       | show the Mermaid source as text in EPUB                                  |
 
 EPUB diagrams use plain SVG text labels (no HTML `foreignObject`) so they display in e-readers.
+
+### 9. Chord Diagrams
+~~~markdown
+```chord
+C    x32010  fingers=x32010
+G    320003  fingers=210003
+F    133211  fingers=134211
+A    x,12,14,14,14,12  fingers=x,1,3,3,3,1
+```
+~~~
+Each line defines one chord, `NAME FRETS [options]`, drawn side by side:
+
+- **FRETS** has one entry per string, lowest string first: `x` = muted, `0` = open, a number = fret. Separate entries with commas when any fret is 10 or higher. The number of entries sets the number of strings, so `2000` draws a four-string ukulele chord.
+- `fingers=` uses the same layout (`0`, `x` or `-` = no finger, `T` = thumb). Strings held by the same finger on the same fret are drawn as a barre.
+- `base=N` sets the fret shown at the top of the diagram. By default it is the nut, or the lowest fretted note (labelled e.g. `5fr`) when the chord doesn't fit in the first four frets.
+- `barre=N` draws a barre on fret N without needing `fingers=`.
+
+` ```chords ` works as well. Diagrams are drawn as SVG by the Lua filter itself: inline in web readers, where they follow the light/dark color mode, and as SVG images in EPUB. A block with a syntax error is shown as source text with the error message, and the build prints a warning.
 
 ---
 

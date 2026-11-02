@@ -50,7 +50,8 @@
   --lm-abc-bg: transparent;
 }
 [data-color-mode="dark"] .abc-source-toggle .abc-source,
-[data-color-mode="dark"] .mermaid-source {
+[data-color-mode="dark"] .mermaid-source,
+[data-color-mode="dark"] .chord-source {
   color: #e2e8f0;
   border-color: #27272a;
 }

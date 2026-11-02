@@ -1,6 +1,7 @@
 -- libro_filter.lua: Pandoc Lua filter for LibroMorph
 -- Supports: Ruby text (furigana), Tate-chu-yoko, Quizzes, Callouts, Dropcaps,
--- Index anchors, ABC music notation, Mermaid diagrams, and writing-mode islands.
+-- Index anchors, ABC music notation, Mermaid diagrams, chord diagrams, and
+-- writing-mode islands.
 
 local is_epub = (FORMAT:match("^epub") ~= nil)
 local quiz_counter = 0
@@ -286,12 +287,266 @@ local function mermaid_block(block)
   ))
 end
 
--- Process CodeBlock elements (ABC music, Mermaid diagrams)
+-- Chord Diagrams (fretted instruments)
+--
+-- Each non-blank line defines one chord:  NAME FRETS [fingers=...] [base=N] [barre=N]
+--   FRETS   one entry per string, lowest string first: x = muted, 0 = open,
+--           1-9 = fret; separate with commas for frets >= 10 (x,10,12,12,12,10)
+--   fingers same layout as FRETS (0, x or - = none; T = thumb); strings sharing
+--           a finger on the same fret are drawn as a barre
+--   base    fret number of the top row (default: 1, or the lowest fretted
+--           note when the chord doesn't fit in the first four frets)
+--   barre   draw a barre on this fret, from the first string fretted there
+-- The number of strings is taken from FRETS (6 = guitar, 4 = ukulele, ...).
+-- A colon after NAME is optional. Diagrams are drawn as SVG right here, so
+-- no external renderer is needed for HTML or EPUB.
+
+local function parse_fret_list(s)
+  local list = {}
+  if s:find(",") then
+    for item in (s .. ","):gmatch("([^,]*),") do table.insert(list, item) end
+  else
+    for ch in s:gmatch(".") do table.insert(list, ch) end
+  end
+  return list
+end
+
+local function parse_chord_line(line)
+  local tokens = {}
+  for tok in line:gmatch("%S+") do table.insert(tokens, tok) end
+  local name = table.remove(tokens, 1)
+  if name:sub(-1) == ":" and #name > 1 then
+    name = name:sub(1, -2)
+  elseif tokens[1] == ":" then
+    table.remove(tokens, 1)
+  end
+  if #tokens == 0 then
+    return nil, string.format("chord '%s' has no frets", name)
+  end
+
+  local chord = { name = name, frets = {}, fingers = {} }
+  for i, f in ipairs(parse_fret_list(table.remove(tokens, 1))) do
+    local lf = f:lower()
+    if lf == "x" then
+      chord.frets[i] = "x"
+    elseif lf:match("^%d+$") then
+      chord.frets[i] = tonumber(lf)
+    else
+      return nil, string.format("chord '%s': invalid fret '%s' (use x, 0 or a fret number)", name, f)
+    end
+  end
+  if #chord.frets < 2 or #chord.frets > 12 then
+    return nil, string.format("chord '%s' must have between 2 and 12 strings", name)
+  end
+
+  for _, tok in ipairs(tokens) do
+    local key, value = tok:match("^(%a+)=(.+)$")
+    key = key and key:lower()
+    if key == "fingers" then
+      local fingers = parse_fret_list(value)
+      if #fingers ~= #chord.frets then
+        return nil, string.format("chord '%s': fingers has %d entries but there are %d strings",
+          name, #fingers, #chord.frets)
+      end
+      for i, f in ipairs(fingers) do
+        if f ~= "0" and f ~= "x" and f ~= "X" and f ~= "-" then chord.fingers[i] = f end
+      end
+    elseif (key == "base" or key == "barre") and value:match("^%d+$") and tonumber(value) >= 1 then
+      chord[key] = tonumber(value)
+    else
+      return nil, string.format("chord '%s': unknown option '%s'", name, tok)
+    end
+  end
+  return chord
+end
+
+local function parse_chords(text)
+  local chords = {}
+  for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+    if line:match("%S") then
+      local chord, err = parse_chord_line(line)
+      if not chord then return nil, err end
+      table.insert(chords, chord)
+    end
+  end
+  if #chords == 0 then return nil, "no chords defined" end
+  return chords
+end
+
+local function chord_description(chord)
+  local frets = {}
+  for i, f in ipairs(chord.frets) do frets[i] = tostring(f) end
+  return string.format("%s chord: %s", chord.name, table.concat(frets, " "))
+end
+
+-- Renders one chord as a standalone SVG document. `fg` is the line/dot color
+-- (currentColor inline in HTML; a fixed color in EPUB images) and finger
+-- numbers use class "chord-finger" so page CSS can recolor them.
+local function chord_svg(chord, fg)
+  local n = #chord.frets
+  local SX, FY, R = 16, 20, 6.5       -- string spacing, fret spacing, dot radius
+  local LEFT, RIGHT, TOP = 26, 14, 44 -- padding (left leaves room for the fret label)
+
+  local min_f, max_f = nil, 0
+  for _, f in ipairs(chord.frets) do
+    if f ~= "x" and f > 0 then
+      min_f = (min_f and math.min(min_f, f)) or f
+      max_f = math.max(max_f, f)
+    end
+  end
+  local base = chord.base or ((max_f <= 4 or not min_f) and 1 or min_f)
+  local rows = math.max(4, max_f - base + 1)
+
+  local grid_w = (n - 1) * SX
+  local width = math.max(LEFT + grid_w + RIGHT, utf8.len(chord.name) * 10 + 16)
+  local x0 = (width - grid_w) / 2 + (LEFT - RIGHT) / 2
+  local height = TOP + rows * FY + 10
+  local function sx(i) return x0 + (i - 1) * SX end
+  local function fy(f) return TOP + (f - base + 0.5) * FY end
+  local function num(v) return string.format("%g", math.floor(v * 10 + 0.5) / 10) end
+
+  local out = {}
+  local function add(fmt, ...) table.insert(out, string.format(fmt, ...)) end
+  local desc = html_escape(chord_description(chord))
+
+  add('<svg xmlns="http://www.w3.org/2000/svg" class="chord-svg" width="%s" height="%s" viewBox="0 0 %s %s" ' ..
+      'role="img" aria-label="%s" font-family="Helvetica, Arial, sans-serif">',
+      num(width), num(height), num(width), num(height), desc)
+  add('<title>%s</title>', desc)
+  add('<text x="%s" y="18" text-anchor="middle" font-size="16" font-weight="bold" fill="%s">%s</text>',
+      num(x0 + grid_w / 2), fg, html_escape(chord.name))
+
+  -- Strings and frets
+  for i = 1, n do
+    add('<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="%s" stroke-width="1"/>',
+        num(sx(i)), TOP, num(sx(i)), TOP + rows * FY, fg)
+  end
+  for r = 0, rows do
+    add('<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="%s" stroke-width="1"/>',
+        num(x0), TOP + r * FY, num(x0 + grid_w), TOP + r * FY, fg)
+  end
+  if base == 1 then
+    add('<rect x="%s" y="%s" width="%s" height="4" fill="%s"/>', num(x0 - 0.5), TOP - 4, num(grid_w + 1), fg)
+  else
+    add('<text x="%s" y="%s" text-anchor="end" font-size="11" fill="%s">%dfr</text>',
+        num(x0 - 7), num(fy(base) + 4), fg, base)
+  end
+
+  -- Barres: an explicit barre= fret, plus strings sharing a finger on one fret
+  local barred = {}
+  local barres = {}
+  if chord.barre then
+    for i = 1, n do
+      if chord.frets[i] == chord.barre then
+        table.insert(barres, { fret = chord.barre, from = i, to = n, finger = chord.fingers[i] })
+        break
+      end
+    end
+  end
+  local groups = {}
+  for i = 1, n do
+    local finger, f = chord.fingers[i], chord.frets[i]
+    if finger and f ~= "x" and f > 0 then
+      local key = finger .. "@" .. f
+      if groups[key] then
+        groups[key].to = i
+      else
+        groups[key] = { fret = f, from = i, to = i, finger = finger }
+        table.insert(groups, groups[key])
+      end
+    end
+  end
+  for _, g in ipairs(groups) do
+    if g.to > g.from then table.insert(barres, g) end
+  end
+  for _, b in ipairs(barres) do
+    if b.fret >= base and b.fret < base + rows then
+      add('<rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="%s"/>',
+          num(sx(b.from) - R), num(fy(b.fret) - R), num(sx(b.to) - sx(b.from) + 2 * R), num(2 * R), num(R), fg)
+      for i = b.from, b.to do
+        if chord.frets[i] == b.fret then barred[i] = true end
+      end
+      if b.finger then
+        add('<text x="%s" y="%s" text-anchor="middle" font-size="10" font-weight="bold" ' ..
+            'class="chord-finger" fill="#fff">%s</text>',
+            num(sx(b.from)), num(fy(b.fret) + 3.5), html_escape(b.finger))
+      end
+    end
+  end
+
+  -- Open/muted markers and fretted notes
+  for i, f in ipairs(chord.frets) do
+    local x = sx(i)
+    if f == "x" then
+      add('<path d="M%s %sL%s %sM%s %sL%s %s" stroke="%s" stroke-width="1.5"/>',
+          num(x - 4), TOP - 15, num(x + 4), TOP - 7, num(x + 4), TOP - 15, num(x - 4), TOP - 7, fg)
+    elseif f == 0 then
+      add('<circle cx="%s" cy="%s" r="4" fill="none" stroke="%s" stroke-width="1.5"/>', num(x), TOP - 11, fg)
+    elseif not barred[i] and f >= base and f < base + rows then
+      add('<circle cx="%s" cy="%s" r="%s" fill="%s"/>', num(x), num(fy(f)), num(R), fg)
+      if chord.fingers[i] then
+        add('<text x="%s" y="%s" text-anchor="middle" font-size="10" font-weight="bold" ' ..
+            'class="chord-finger" fill="#fff">%s</text>', num(x), num(fy(f) + 3.5), html_escape(chord.fingers[i]))
+      end
+    end
+  end
+
+  table.insert(out, '</svg>')
+  return table.concat(out)
+end
+
+local chord_counter = 0
+
+local function chord_block(block)
+  chord_counter = chord_counter + 1
+  local block_id = block.identifier ~= "" and block.identifier or ("chord-diagrams-" .. tostring(chord_counter))
+  local chords, err = parse_chords(block.text)
+
+  if not chords then
+    io.stderr:write("[LibroMorph] Warning: chord diagram block '" .. block_id .. "': " .. err .. "\n")
+    return pandoc.RawBlock('html', string.format(
+      '<div class="chord-diagrams chord-diagrams-error" id="%s">\n' ..
+      '<p class="chord-error">⚠ Could not draw chord diagram: %s</p>\n' ..
+      '<pre class="chord-source"><code>%s</code></pre>\n' ..
+      '</div>',
+      block_id, html_escape(err), html_escape(block.text)
+    ))
+  end
+
+  if is_epub then
+    -- EPUB: embed each diagram as an SVG image (via the media bag), since
+    -- inline SVG and currentColor aren't reliable across reading systems
+    local images = {}
+    for _, chord in ipairs(chords) do
+      local svg = chord_svg(chord, "#1e1e1e")
+      local path = "chord-" .. pandoc.utils.sha1(svg) .. ".svg"
+      pandoc.mediabag.insert(path, "image/svg+xml", svg)
+      table.insert(images, pandoc.Image({ pandoc.Str(chord_description(chord)) }, path, "",
+        pandoc.Attr("", { "chord-svg" })))
+      table.insert(images, pandoc.Space())
+    end
+    table.remove(images)
+    return pandoc.Div({ pandoc.Plain(images) }, pandoc.Attr(block_id, { "chord-diagrams", "chord-diagrams-epub" }))
+  end
+
+  -- HTML website: inline SVG drawn in currentColor so it follows the color mode
+  local parts = {}
+  for _, chord in ipairs(chords) do
+    table.insert(parts, '<div class="chord-diagram">' .. chord_svg(chord, "currentColor") .. '</div>')
+  end
+  return pandoc.RawBlock('html', string.format(
+    '<div class="chord-diagrams" id="%s">\n%s\n</div>', block_id, table.concat(parts, "\n")
+  ))
+end
+
+-- Process CodeBlock elements (ABC music, Mermaid diagrams, chord diagrams)
 function CodeBlock(block)
   if block.classes:includes('abc') then
     return abc_block(block)
   elseif block.classes:includes('mermaid') then
     return mermaid_block(block)
+  elseif block.classes:includes('chord') or block.classes:includes('chords') then
+    return chord_block(block)
   end
 
   return block

@@ -243,6 +243,65 @@ def test_normalize_svg_sizes_percentage_width():
     assert 'width="320"' in svg and 'height="120"' in svg and "100%" not in svg
 
 
+CHORD_INPUT = """
+```chord
+F:  133211  fingers=134211
+Am  2000
+D   x,x,0,14,15,14 base=13
+```
+"""
+
+
+def _run_filter(md, fmt="html"):
+    cmd = ["pandoc", "-f", "markdown", "-t", fmt, f"--lua-filter={FILTER_PATH}"]
+    return subprocess.run(cmd, input=md, capture_output=True, text=True)
+
+
+def test_chord_filter_html():
+    res = _run_filter(CHORD_INPUT)
+    assert res.returncode == 0
+    out = res.stdout
+    assert '<div class="chord-diagrams" id="chord-diagrams-1">' in out
+    assert out.count('<div class="chord-diagram">') == 3
+    assert 'aria-label="F chord: 1 3 3 2 1 1"' in out
+    assert 'aria-label="Am chord: 2 0 0 0"' in out
+    # F: barre for finger 1 across all six strings, nut drawn (base fret 1)
+    assert 'rx="6.5"' in out
+    assert ">1</text>" in out and ">4</text>" in out
+    # D: explicit base fret is labelled
+    assert ">13fr</text>" in out
+    assert 'stroke="currentColor"' in out
+
+
+def test_chord_filter_error_shows_source():
+    res = _run_filter("```chords\nG 3200z3\n```\n")
+    assert res.returncode == 0
+    assert "chord-diagrams-error" in res.stdout
+    assert "invalid fret" in res.stdout
+    assert "G 3200z3" in res.stdout
+    assert "invalid fret" in res.stderr
+
+    res = _run_filter("```chord\nC x32010 fingers=x3201\n```\n")
+    assert "fingers has 5 entries but there are 6 strings" in res.stdout
+
+
+def test_chord_filter_epub():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        epub_path = os.path.join(tmpdir, "out.epub")
+        cmd = ["pandoc", "-f", "markdown", "-t", "epub3", f"--lua-filter={FILTER_PATH}", "-o", epub_path]
+        res = subprocess.run(cmd, input=CHORD_INPUT, capture_output=True, text=True)
+        assert res.returncode == 0
+        import zipfile
+        with zipfile.ZipFile(epub_path, "r") as z:
+            content = z.read("EPUB/text/ch001.xhtml").decode("utf-8")
+            svgs = [z.read(n).decode("utf-8") for n in z.namelist() if n.endswith(".svg")]
+    assert "chord-diagrams-epub" in content
+    assert content.count('class="chord-svg"') == 3
+    assert 'alt="Am chord: 2 0 0 0"' in content
+    assert len(svgs) == 3
+    assert all("currentColor" not in svg and 'xmlns="http://www.w3.org/2000/svg"' in svg for svg in svgs)
+
+
 def test_callout_filter():
     md_input = """
 ::: note

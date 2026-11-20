@@ -56,6 +56,37 @@
   border-color: #27272a;
 }
 
+[data-color-mode="dark"] .rg-table th,
+[data-color-mode="dark"] .rg-table td {
+  border-color: #3f3f46;
+}
+[data-color-mode="dark"] .rhythm-grid .rg-table thead th {
+  background: #27272a;
+}
+[data-color-mode="dark"] .rhythm-grid .rg-table thead th.rg-label {
+  background: transparent;
+}
+[data-color-mode="dark"] .rg-table th.rg-label,
+[data-color-mode="dark"] .rg-table .rg-note {
+  background: transparent;
+}
+[data-color-mode="dark"] .rg-table .rg-group-start {
+  border-left-color: currentColor;
+}
+[data-color-mode="dark"] .rg-legend {
+  color: #a1a1aa;
+}
+[data-color-mode="dark"] .rg-source {
+  color: #e2e8f0;
+  background: transparent;
+}
+[data-color-mode="sepia"] .rhythm-grid .rg-table thead th {
+  background: rgba(91, 70, 54, 0.08);
+}
+[data-color-mode="sepia"] .rhythm-grid .rg-table thead th.rg-label {
+  background: transparent;
+}
+
 /* Sepia mode colors */
 [data-color-mode="sepia"] {
   --lm-bg-color: #f6efe2 !important;

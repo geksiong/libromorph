@@ -497,6 +497,136 @@ ruby rp {
   font-style: italic;
 }
 
+/* Rhythm grids: box notation for counts, cycles and accent patterns */
+.rhythm-grid {
+  margin: 1.4em 0;
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+}
+.rhythm-grid .rg-scroll {
+  overflow-x: auto;
+}
+.rg-title {
+  text-align: center;
+  font-weight: 600;
+  margin: 0 0 0.4em;
+  text-indent: 0;
+}
+.rhythm-grid .rg-table {
+  width: auto;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+  border-collapse: collapse;
+  margin: 0 auto;
+  font-family: var(--lm-font-sans);
+  font-size: 0.92em;
+  line-height: 1.2;
+}
+.rg-table th,
+.rg-table td {
+  border: 1px solid #cbd5e1;
+  padding: 0.3em 0.12em;
+  text-align: center;
+  min-width: 1.45em;
+}
+/* Own backgrounds and text color, so a theme's generic table styles
+   (striped rows, dark header text) cannot leak into the grid */
+.rhythm-grid .rg-table th,
+.rhythm-grid .rg-table td {
+  background: transparent;
+  color: inherit;
+}
+.rhythm-grid .rg-table thead th {
+  font-weight: 600;
+  background: #f1f5f9;
+}
+.rhythm-grid .rg-table thead th.rg-label {
+  background: transparent;
+}
+.rg-table th.rg-label {
+  text-align: left;
+  font-weight: 600;
+  padding-right: 0.4em;
+  background: transparent;
+  border-left: none;
+  padding-left: 0;
+}
+.rg-table thead th.rg-label {
+  border-top: none;
+}
+.rg-table .rg-group-start {
+  border-left: 2px solid currentColor;
+}
+.rg-strong {
+  font-size: 1.25em;
+  line-height: 1;
+}
+.rg-light {
+  font-size: 0.85em;
+  line-height: 1;
+}
+.rg-text {
+  font-weight: 600;
+}
+.rg-phrase {
+  font-weight: normal;
+  font-style: italic;
+  text-align: left;
+}
+.rg-hold-bar {
+  display: block;
+  height: 0;
+  border-top: 3px solid currentColor;
+  margin: 0 -0.12em;
+}
+.rg-table .rg-note {
+  border: none;
+  text-align: left;
+  font-style: italic;
+  white-space: nowrap;
+}
+.rg-legend {
+  text-align: center;
+  font-size: 0.85em;
+  color: #64748b;
+  margin: 0.4em 0 0;
+  text-indent: 0;
+}
+.rg-hold-sample {
+  display: inline-block;
+  width: 1.4em;
+  border-top: 3px solid currentColor;
+  vertical-align: middle;
+}
+.rhythm-grid-circle {
+  text-align: center;
+}
+.rhythm-grid-circle svg,
+.rhythm-grid-circle img.rg-circle-img {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+}
+.rhythm-grid-error {
+  display: block;
+}
+.rg-source {
+  text-align: left;
+  margin: 0;
+  padding: 0.8em 1em;
+  background: #f8fafc;
+  color: #1e293b;
+  border-radius: 4px;
+  font-size: 0.88em;
+  overflow-x: auto;
+  white-space: pre;
+}
+.rg-error {
+  color: #b91c1c;
+  font-style: italic;
+}
+
 /* Fretboard.js and Fretdrom diagrams */
 .lm-fret-diagram {
   margin: 1.6em 0;

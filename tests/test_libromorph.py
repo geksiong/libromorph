@@ -290,6 +290,69 @@ def _run_filter(md, fmt="html"):
     return subprocess.run(cmd, input=md, capture_output=True, text=True)
 
 
+RHYTHM_GRID_INPUT = """
+```rhythm-grid
+Count:    7   8   9  10  11  12 | 1   2   3
+Guitar:   .   F   .   E   .   . | E   -   x
+Meaning:             arrive       next cycle
+```
+
+```rhythm-grid
+Subdivision:     1 2 3 4 5 6
+Two groups:      X . . X . .    (3 + 3)
+```
+"""
+
+
+def test_rhythm_grid_table_html():
+    res = _run_filter(RHYTHM_GRID_INPUT)
+    assert res.returncode == 0, res.stderr
+    out = res.stdout
+    assert out.count('<table class="rg-table">') == 2
+    # Columns come from the header; "|" starts a group at count 1
+    assert '<th class="rg-count rg-group-start" scope="col">1</th>' in out
+    # Chord names stay text, "-" is held, "x" is a light mark
+    assert '>F</td>' in out and 'rg-hold' in out and 'rg-light' in out
+    # Multi-word phrases span columns; text past the grid becomes a note
+    assert 'colspan="3"' in out and 'next cycle' in out
+    assert '<td class="rg-note">(3 + 3)</td>' in out
+    # Generated description names positions, including held cells
+    assert 'Guitar: light on 3; held on 2; F on 8; E on 10, 1' in out
+    assert 'Two groups: strong on 1, 4' in out
+
+
+def test_rhythm_grid_subdivision_names():
+    md = "```rhythm-grid\nCount:  3 & 4 &\nB:      . x X .\n```\n"
+    res = _run_filter(md)
+    assert res.returncode == 0
+    assert "B: strong on 4; light on 3&amp;" in res.stdout
+
+
+def test_rhythm_grid_circle_html_and_epub():
+    md = ('```{.rhythm-grid .circle title="Cycle"}\n'
+          'Count:    1  2  3 | 4  5  6 | 7  8 | 9 10 |11 12\n'
+          'Landmark: .  .  X | .  .  X | .  X | .  X | .  X\n```\n')
+    res = _run_filter(md)
+    assert res.returncode == 0
+    assert '<svg' in res.stdout and 'class="rg-circle-svg"' in res.stdout
+    assert 'Landmark: strong on 3, 6, 8, 10, 12' in res.stdout
+    with tempfile.TemporaryDirectory() as tmp:
+        epub_path = os.path.join(tmp, "g.epub")
+        cmd = ["pandoc", "-f", "markdown", "-t", "epub3", f"--lua-filter={FILTER_PATH}", "-o", epub_path]
+        res = subprocess.run(cmd, input=md, capture_output=True, text=True)
+        assert res.returncode == 0, res.stderr
+        with zipfile.ZipFile(epub_path) as z:
+            assert any(n.endswith(".svg") for n in z.namelist())
+            assert 'rg-circle-img' in z.read("EPUB/text/ch001.xhtml").decode("utf-8")
+
+
+def test_rhythm_grid_error_shows_source():
+    res = _run_filter("```rhythm-grid\nCount: 1 2 3\nno label here\n```\n")
+    assert res.returncode == 0
+    assert "rhythm-grid-error" in res.stdout and "no label here" in res.stdout
+    assert "rhythm grid" in res.stderr
+
+
 def test_chord_filter_html():
     res = _run_filter(CHORD_INPUT)
     assert res.returncode == 0

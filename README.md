@@ -23,6 +23,7 @@
 - 🎵 **ABC Music Notation**: Fenced ` ```abc ` code blocks are rendered as sheet music with [abcjs](https://www.abcjs.net) in web readers (with a "View ABC Source" toggle), and pre-rendered to SVG images for EPUB with your choice of abcjs, abcm2ps or abc2svg.
 - 🔀 **Mermaid Diagrams**: Fenced ` ```mermaid ` code blocks are drawn with [Mermaid](https://mermaid.js.org) in web readers (following the light/dark color mode), and pre-rendered to SVG images for EPUB with mermaid.js or mermaid-cli.
 - 🎸 **Chord Diagrams**: Fenced ` ```chord ` code blocks draw fretboard chord diagrams (guitar, ukulele or any fretted instrument) as SVG, with fingerings and barres, with no extra dependencies.
+- 🥁 **Rhythm Grids**: Fenced ` ```rhythm-grid ` blocks turn column-aligned count/accent grids into box-notation tables (or a circular cycle with `.circle`), with group boundaries, a legend, and an automatic spoken description.
 - 🎸 **Fretboard Diagrams**: Fenced `fretboard` blocks use fretboard.js for scales or marked positions; `fretdrom` blocks use Fretdrom for scale boxes and tabs. Both render as SVG in HTML and EPUB.
 
 ---
@@ -252,7 +253,26 @@ Each line defines one chord, `NAME FRETS [options]`, drawn side by side:
 
 ` ```chords ` works as well. Diagrams are drawn as SVG by the Lua filter itself: inline in web readers, where they follow the light/dark color mode, and as SVG images in EPUB. A block with a syntax error is shown as source text with the error message, and the build prints a warning.
 
-### 10. Fretboard Diagrams
+### 10. Rhythm Grids
+
+Write counts and patterns the way you would in a monospaced text block. The first line is the header; every other row is matched to its columns by character position:
+
+~~~markdown
+```rhythm-grid
+Count:   12  1  2 | 3  4  5 | 6  7 | 8  9 |10 11
+Map A:    X  .  . | X  .  . | X  . | X  . | X  .
+Guitar:   .  F  . | E  -  - | .  . | .  . | .  .
+```
+~~~
+
+- Every line is `Label: cells`. `|` in the header marks a group boundary, drawn as a heavy rule.
+- Cells: `X` strong, `x` light, `o` muted, `.` empty, `-` held from the previous cell. Anything else (`F`, `Bb`, `arrive`) is shown as text; words separated by single spaces (`next cycle`) span the columns they sit over.
+- Text past the last column (`(3 + 3)`) becomes a note at the end of its row.
+- Add `.circle` to draw a cycle as a clock face, one ring per row, with the first count at the top: ` ```{.rhythm-grid .circle title="Soleá landmarks"} `. `title` adds a heading to either form.
+
+Grids are HTML tables in both web readers and EPUB, so they reflow and work on e-ink; circles are SVG. Each grid gets a generated description ("Map A: strong on 12, 3, 6, 8, 10") for screen readers. A block that cannot be parsed is shown as source text with the error message, and the build prints a warning.
+
+### 11. Fretboard Diagrams
 
 Use `fretboard` with JSON to let [fretboard.js](https://moonwave99.github.io/fretboard.js/) calculate a scale across the neck:
 

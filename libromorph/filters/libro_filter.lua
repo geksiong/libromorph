@@ -1,7 +1,7 @@
 -- libro_filter.lua: Pandoc Lua filter for LibroMorph
 -- Supports: Ruby text (furigana), Tate-chu-yoko, Quizzes, Callouts, Dropcaps,
--- Index anchors, ABC music notation, Mermaid diagrams, chord diagrams, and
--- writing-mode islands.
+-- Index anchors, ABC music notation, Mermaid diagrams, chord diagrams, rhythm
+-- grids, and writing-mode islands.
 
 local is_epub = (FORMAT:match("^epub") ~= nil)
 local quiz_counter = 0
@@ -543,6 +543,388 @@ local function chord_block(block)
   ))
 end
 
+-- Rhythm grids: box notation for counts, cycles and accent patterns.
+--
+--   ```rhythm-grid
+--   Count:   12  1  2 | 3  4  5 | 6  7 | 8  9 |10 11
+--   Map A:    X  .  . | X  .  . | X  . | X  . | X  .
+--   ```
+--
+-- Every line is "Label: cells". The first line is the header (the counts);
+-- other rows are matched to its columns by character position, so grids
+-- written for a monospaced font keep their meaning. `|` in the header marks
+-- a group boundary. Cells: X strong, x light, o muted/open, . empty,
+-- - held from the previous cell; anything else (F, Bb, "next cycle") is text.
+-- Text past the last column becomes a note at the end of the row.
+-- Add `.circle` to draw a cycle as a clock face instead of a table.
+local rhythm_grid_counter = 0
+
+local RG_SYMBOLS = {
+  X = { class = "rg-strong", mark = "●", name = "strong" },
+  x = { class = "rg-light", mark = "●", name = "light" },
+  o = { class = "rg-muted", mark = "○", name = "muted" },
+}
+
+local function utf8_chars(s)
+  local chars = {}
+  for _, c in utf8.codes(s) do chars[#chars + 1] = utf8.char(c) end
+  return chars
+end
+
+-- Split chars[from..] into tokens {text, s, e} at spaces; "|" positions are
+-- returned separately.
+local function rg_tokenize(chars, from)
+  local tokens, bars = {}, {}
+  local cur, start = nil, nil
+  local function flush(i)
+    if cur then
+      tokens[#tokens + 1] = { text = cur, s = start, e = i - 1 }
+      cur = nil
+    end
+  end
+  for i = from, #chars do
+    local c = chars[i]
+    if c == " " or c == "\t" then
+      flush(i)
+    elseif c == "|" then
+      flush(i)
+      bars[#bars + 1] = i
+    else
+      if not cur then cur, start = "", i end
+      cur = cur .. c
+    end
+  end
+  flush(#chars + 1)
+  return tokens, bars
+end
+
+local function rg_split_label(line)
+  local chars = utf8_chars(line)
+  for i, c in ipairs(chars) do
+    if c == ":" then
+      local label = table.concat(chars, "", 1, i - 1):gsub("^%s+", ""):gsub("%s+$", "")
+      if label:match("^%a") then return label, chars, i + 1 end
+      return nil
+    end
+  end
+  return nil
+end
+
+local function rg_is_word(text)
+  return utf8.len(text) >= 3 and text:match("^[%a(]") ~= nil
+end
+
+local function parse_rhythm_grid(text)
+  local header, rows = nil, {}
+  for line in (text .. "\n"):gmatch("(.-)\r?\n") do
+    if line:match("%S") then
+      local label, chars, from = rg_split_label(line)
+      if not label then
+        return nil, "line without a 'Label:' prefix: " .. line
+      end
+      local tokens, bars = rg_tokenize(chars, from)
+      if not header then
+        if #tokens == 0 then return nil, "the header row has no counts" end
+        header = { label = label, cols = tokens, group_start = {} }
+        for _, b in ipairs(bars) do
+          for ci, col in ipairs(tokens) do
+            if col.s > b then header.group_start[ci] = true; break end
+          end
+        end
+      else
+        rows[#rows + 1] = { label = label, tokens = tokens }
+      end
+    end
+  end
+  if not header then return nil, "empty grid" end
+  if #rows == 0 then return nil, "no rows below the header" end
+
+  local cols = header.cols
+  local last_end = cols[#cols].e
+  local function column_for(tok)
+    local best, best_d = 1, math.huge
+    for ci, col in ipairs(cols) do
+      if tok.s <= col.e and tok.e >= col.s then return ci end
+      local d = math.abs((tok.s + tok.e) / 2 - (col.s + col.e) / 2)
+      if d < best_d then best, best_d = ci, d end
+    end
+    return best
+  end
+
+  for _, row in ipairs(rows) do
+    -- Join multi-word phrases ("next cycle") separated by single spaces
+    local phrases = {}
+    for _, tok in ipairs(row.tokens) do
+      local prev = phrases[#phrases]
+      if prev and tok.s == prev.e + 2 and rg_is_word(prev.last) and rg_is_word(tok.text) then
+        prev.text = prev.text .. " " .. tok.text
+        prev.e, prev.last = tok.e, tok.text
+      else
+        phrases[#phrases + 1] = { text = tok.text, s = tok.s, e = tok.e, last = tok.text }
+      end
+    end
+    row.cells, row.note = {}, nil
+    local notes = {}
+    for _, ph in ipairs(phrases) do
+      if ph.s > last_end + 1 then
+        notes[#notes + 1] = ph.text
+      else
+        local ci = column_for(ph)
+        local span = 1
+        if ph.text:find(" ") then
+          local last_ci = column_for({ s = ph.e, e = ph.e })
+          span = math.max(1, last_ci - ci + 1)
+        end
+        if row.cells[ci] then
+          row.cells[ci].text = row.cells[ci].text .. " " .. ph.text
+        else
+          row.cells[ci] = { text = ph.text, span = span }
+        end
+      end
+    end
+    if #notes > 0 then row.note = table.concat(notes, " ") end
+  end
+  return { header = header, rows = rows }
+end
+
+local function rg_cell_kind(text)
+  if text == "." then return "empty" end
+  if text == "-" or text == "—" or text == "–" then return "hold" end
+  if RG_SYMBOLS[text] then return "symbol" end
+  return "text"
+end
+
+-- Spoken names for header counts: subdivisions take their beat ("3&").
+local function rg_count_names(cols)
+  local names, beat = {}, nil
+  for ci, col in ipairs(cols) do
+    if col.text:match("^%d") then
+      beat = col.text
+      names[ci] = col.text
+    else
+      names[ci] = (beat or "") .. col.text
+    end
+  end
+  return names
+end
+
+local function rg_description(grid)
+  local parts = {}
+  local names = rg_count_names(grid.header.cols)
+  for _, row in ipairs(grid.rows) do
+    local by_kind, order = {}, { "strong", "light", "muted", "held" }
+    for ci, col in ipairs(grid.header.cols) do
+      local cell = row.cells[ci]
+      if cell then
+        local kind = rg_cell_kind(cell.text)
+        local name = (kind == "symbol" and RG_SYMBOLS[cell.text].name) or (kind == "hold" and "held") or
+          (kind == "text" and cell.text) or nil
+        if name then
+          if not by_kind[name] then
+            by_kind[name] = {}
+            if kind == "text" then order[#order + 1] = name end
+          end
+          table.insert(by_kind[name], names[ci])
+        end
+      end
+    end
+    local bits = {}
+    for _, name in ipairs(order) do
+      if by_kind[name] then
+        bits[#bits + 1] = name .. " on " .. table.concat(by_kind[name], ", ")
+      end
+    end
+    if #bits > 0 then parts[#parts + 1] = row.label .. ": " .. table.concat(bits, "; ") end
+  end
+  local counts = {}
+  for _, col in ipairs(grid.header.cols) do counts[#counts + 1] = col.text end
+  return "Rhythm grid, " .. grid.header.label:lower() .. " " .. table.concat(counts, " ") ..
+    (#parts > 0 and (". " .. table.concat(parts, ". ")) or "")
+end
+
+local function rg_legend(used)
+  local items = {}
+  for _, key in ipairs({ "X", "x", "o" }) do
+    if used[key] then
+      local sym = RG_SYMBOLS[key]
+      items[#items + 1] = '<span class="' .. sym.class .. '">' .. sym.mark .. '</span> ' .. sym.name
+    end
+  end
+  if used.hold then items[#items + 1] = '<span class="rg-hold-sample"></span> held' end
+  if #items == 0 then return "" end
+  return '<p class="rg-legend">' .. table.concat(items, " · ") .. '</p>'
+end
+
+local function rhythm_grid_table(grid)
+  local out, used = {}, {}
+  local cols, group_start = grid.header.cols, grid.header.group_start
+  local has_note = false
+  for _, row in ipairs(grid.rows) do if row.note then has_note = true end end
+  local function col_class(ci, base)
+    return base .. (group_start[ci] and " rg-group-start" or "")
+  end
+
+  out[#out + 1] = '<table class="rg-table">'
+  out[#out + 1] = '<thead><tr><th class="rg-label" scope="col">' .. html_escape(grid.header.label) .. '</th>'
+  for ci, col in ipairs(cols) do
+    out[#out + 1] = '<th class="' .. col_class(ci, "rg-count") .. '" scope="col">' .. html_escape(col.text) .. '</th>'
+  end
+  if has_note then out[#out + 1] = '<th class="rg-note" scope="col"></th>' end
+  out[#out + 1] = '</tr></thead><tbody>'
+
+  for _, row in ipairs(grid.rows) do
+    out[#out + 1] = '<tr><th class="rg-label" scope="row">' .. html_escape(row.label) .. '</th>'
+    local ci = 1
+    while ci <= #cols do
+      local cell = row.cells[ci]
+      if not cell then
+        out[#out + 1] = '<td class="' .. col_class(ci, "rg-cell rg-empty") .. '"></td>'
+        ci = ci + 1
+      else
+        local kind = rg_cell_kind(cell.text)
+        if kind == "empty" then
+          out[#out + 1] = '<td class="' .. col_class(ci, "rg-cell rg-empty") .. '"></td>'
+          ci = ci + 1
+        elseif kind == "hold" then
+          used.hold = true
+          out[#out + 1] = '<td class="' .. col_class(ci, "rg-cell rg-hold") .. '"><span class="rg-hold-bar"></span></td>'
+          ci = ci + 1
+        elseif kind == "symbol" then
+          local sym = RG_SYMBOLS[cell.text]
+          used[cell.text] = true
+          out[#out + 1] = '<td class="' .. col_class(ci, "rg-cell " .. sym.class) .. '" title="' .. sym.name .. '">' .. sym.mark .. '</td>'
+          ci = ci + 1
+        else
+          local span = math.min(cell.span, #cols - ci + 1)
+          local wordy = span > 1 or cell.text:match("%l%l%l") ~= nil
+          local cls = col_class(ci, "rg-cell rg-text" .. (wordy and " rg-phrase" or ""))
+          out[#out + 1] = '<td class="' .. cls .. '"' .. (span > 1 and (' colspan="' .. span .. '"') or "") ..
+            '>' .. html_escape(cell.text) .. '</td>'
+          ci = ci + span
+        end
+      end
+    end
+    if has_note then out[#out + 1] = '<td class="rg-note">' .. html_escape(row.note or "") .. '</td>' end
+    out[#out + 1] = '</tr>'
+  end
+  out[#out + 1] = '</tbody></table>'
+  return table.concat(out), used
+end
+
+-- Clock face: counts around the outside, one ring per row (outermost first),
+-- ticks at group boundaries, the header's first count at the top.
+local function rhythm_grid_circle_svg(grid, fg)
+  local cols, n = grid.header.cols, #grid.header.cols
+  local nrows = #grid.rows
+  local R_LABEL, R_OUTER, RING_GAP = 132, 108, 26
+  local cx, cy = 160, 152
+  local legend_h = 18 * nrows + 8
+  local W, H = 320, 304 + legend_h
+  local function num(v) return string.format("%g", math.floor(v * 10 + 0.5) / 10) end
+  local function pos(i, r)
+    local a = -math.pi / 2 + 2 * math.pi * (i - 1) / n
+    return cx + r * math.cos(a), cy + r * math.sin(a)
+  end
+  local out = {}
+  local function add(fmt, ...) out[#out + 1] = string.format(fmt, ...) end
+  local desc = html_escape(rg_description(grid))
+  add('<svg xmlns="http://www.w3.org/2000/svg" class="rg-circle-svg" width="%d" height="%d" viewBox="0 0 %d %d" ' ..
+      'role="img" aria-label="%s" font-family="Helvetica, Arial, sans-serif">', W, H, W, H, desc)
+  add('<title>%s</title>', desc)
+  local r_inner = R_OUTER - RING_GAP * (nrows - 1)
+  -- rings
+  for ri = 1, nrows do
+    add('<circle cx="%d" cy="%d" r="%s" fill="none" stroke="%s" stroke-opacity="0.3" stroke-width="1"/>',
+        cx, cy, num(R_OUTER - RING_GAP * (ri - 1)), fg)
+  end
+  -- group boundaries: radial ticks halfway before each group start; on a
+  -- cycle the first count also starts a group
+  local starts = {}
+  for ci in pairs(grid.header.group_start) do starts[#starts + 1] = ci end
+  if #starts > 0 and not grid.header.group_start[1] then starts[#starts + 1] = 1 end
+  table.sort(starts)
+  for _, ci in ipairs(starts) do
+    local a = -math.pi / 2 + 2 * math.pi * (ci - 1.5) / n
+    add('<line x1="%s" y1="%s" x2="%s" y2="%s" stroke="%s" stroke-width="2"/>',
+        num(cx + (r_inner - 14) * math.cos(a)), num(cy + (r_inner - 14) * math.sin(a)),
+        num(cx + (R_OUTER + 12) * math.cos(a)), num(cy + (R_OUTER + 12) * math.sin(a)), fg)
+  end
+  -- count labels
+  for ci, col in ipairs(cols) do
+    local x, y = pos(ci, R_LABEL)
+    add('<text x="%s" y="%s" text-anchor="middle" dominant-baseline="central" font-size="15"%s fill="%s">%s</text>',
+        num(x), num(y), ci == 1 and ' font-weight="bold"' or "", fg, html_escape(col.text))
+  end
+  -- marks
+  for ri, row in ipairs(grid.rows) do
+    local r = R_OUTER - RING_GAP * (ri - 1)
+    for ci = 1, n do
+      local x, y = pos(ci, r)
+      local cell = row.cells[ci]
+      local kind = cell and rg_cell_kind(cell.text) or "empty"
+      if kind == "symbol" and cell.text == "X" then
+        add('<circle cx="%s" cy="%s" r="9" fill="%s"/>', num(x), num(y), fg)
+      elseif kind == "symbol" and cell.text == "x" then
+        add('<circle cx="%s" cy="%s" r="5.5" fill="%s"/>', num(x), num(y), fg)
+      elseif kind == "symbol" and cell.text == "o" then
+        add('<circle cx="%s" cy="%s" r="7" fill="none" stroke="%s" stroke-width="2"/>', num(x), num(y), fg)
+      elseif kind == "hold" then
+        add('<circle cx="%s" cy="%s" r="3.5" fill="none" stroke="%s" stroke-width="1.5"/>', num(x), num(y), fg)
+      elseif kind == "text" then
+        add('<text x="%s" y="%s" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="bold" fill="%s">%s</text>',
+            num(x), num(y), fg, html_escape(cell.text))
+      else
+        add('<circle cx="%s" cy="%s" r="1.8" fill="%s" fill-opacity="0.45"/>', num(x), num(y), fg)
+      end
+    end
+  end
+  -- ring legend
+  for ri, row in ipairs(grid.rows) do
+    local which = nrows == 1 and "" or (ri == 1 and "outer ring" or (ri == nrows and "inner ring" or "ring " .. ri)) .. ": "
+    add('<text x="%d" y="%d" text-anchor="middle" font-size="13" fill="%s">%s%s</text>',
+        cx, 304 + 18 * (ri - 1) + 4, fg, which, html_escape(row.label))
+  end
+  add('</svg>')
+  return table.concat(out)
+end
+
+local function rhythm_grid_block(block)
+  rhythm_grid_counter = rhythm_grid_counter + 1
+  local block_id = block.identifier ~= "" and block.identifier or ("rhythm-grid-" .. rhythm_grid_counter)
+  local grid, err = parse_rhythm_grid(block.text)
+  if not grid then
+    io.stderr:write("[LibroMorph] Warning: rhythm grid '" .. block_id .. "': " .. err .. "\n")
+    return pandoc.RawBlock('html', string.format(
+      '<div class="rhythm-grid rhythm-grid-error" id="%s">\n' ..
+      '<p class="rg-error">⚠ Could not draw rhythm grid: %s</p>\n' ..
+      '<pre class="rg-source"><code>%s</code></pre>\n</div>',
+      block_id, html_escape(err), html_escape(block.text)))
+  end
+  local title = block.attributes["title"]
+  local caption = title and ('<p class="rg-title">' .. html_escape(title) .. '</p>') or ""
+
+  if block.classes:includes('circle') then
+    if is_epub then
+      local svg = rhythm_grid_circle_svg(grid, "#1e1e1e")
+      local path = "rhythm-grid-" .. pandoc.utils.sha1(svg) .. ".svg"
+      pandoc.mediabag.insert(path, "image/svg+xml", svg)
+      local blocks = {}
+      if title then blocks[#blocks + 1] = pandoc.RawBlock('html', caption) end
+      blocks[#blocks + 1] = pandoc.Plain({ pandoc.Image({ pandoc.Str(rg_description(grid)) }, path, "",
+        pandoc.Attr("", { "rg-circle-img" })) })
+      return pandoc.Div(blocks, pandoc.Attr(block_id, { "rhythm-grid", "rhythm-grid-circle" }))
+    end
+    return pandoc.RawBlock('html', string.format(
+      '<div class="rhythm-grid rhythm-grid-circle" id="%s">%s%s</div>',
+      block_id, caption, rhythm_grid_circle_svg(grid, "currentColor")))
+  end
+
+  local tbl, used = rhythm_grid_table(grid)
+  return pandoc.RawBlock('html', string.format(
+    '<div class="rhythm-grid" id="%s" role="group" aria-label="%s">%s<div class="rg-scroll">%s</div>%s</div>',
+    block_id, html_escape(rg_description(grid)), caption, tbl, rg_legend(used)))
+end
+
 -- Fretboard.js uses JSON; Fretdrom uses its native JSON5 input.
 local function fretboard_block(block, engine)
   local count, svg_dir
@@ -585,6 +967,8 @@ function CodeBlock(block)
     return fretboard_block(block, "fretboard")
   elseif block.classes:includes('fretdrom') then
     return fretboard_block(block, "fretdrom")
+  elseif block.classes:includes('rhythm-grid') then
+    return rhythm_grid_block(block)
   end
 
   return block

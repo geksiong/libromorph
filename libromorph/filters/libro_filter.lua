@@ -623,16 +623,25 @@ function Div(div)
                 if inl_idx == 1 and inline.t == 'Str' then
                   -- The Inlines pre-pass may have merged a trailing space into this
                   -- token (e.g. "☒ "), so trim before matching.
-                  local t = inline.text:match("^%S+")  -- leading non-space token
-                  local has_trailing_space = inline.text:find(" ")
+                  -- It may also carry the option's leading words ("☐ Plain words"),
+                  -- so only the marker is removed and the remainder is kept.
+                  local t, rest = inline.text:match("^(%S+)(.*)$")
+                  local is_marker = true
                   if t == "☒" or t == "☑" or t == "[x]" or t == "[X]" or t == "(x)" or t == "(X)" then
                     is_correct = true
-                    skip_next_space = not has_trailing_space  -- only skip next Space token if not already consumed
                   elseif t == "☐" or t == "[ ]" or t == "()" then
                     is_correct = false
-                    skip_next_space = not has_trailing_space
                   else
+                    is_marker = false
                     inlines:insert(inline)
+                  end
+                  if is_marker then
+                    if rest == "" then
+                      skip_next_space = true  -- marker was alone; drop the following Space
+                    else
+                      rest = rest:gsub("^%s+", "")
+                      if rest ~= "" then inlines:insert(pandoc.Str(rest)) end
+                    end
                   end
                 elseif skip_next_space and inline.t == 'Space' then
                   skip_next_space = false

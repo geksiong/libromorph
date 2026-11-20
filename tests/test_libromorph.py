@@ -92,6 +92,38 @@ def test_quiz_filter_epub():
             os.remove(tmp_path)
 
 
+PLAIN_QUIZ_INPUT = """
+::: quiz
+**Question:** Which is a capital city?
+
+- [ ] Plain words here
+- [x] Correct plain *answer*
+- [ ] $x$ math first
+:::
+"""
+
+
+@pytest.mark.parametrize("fmt", ["html", "epub3"])
+def test_quiz_options_keep_leading_plain_text(fmt):
+    if fmt == "html":
+        res = _run_filter(PLAIN_QUIZ_INPUT)
+        assert res.returncode == 0
+        content = res.stdout
+    else:
+        with tempfile.TemporaryDirectory() as tmp:
+            epub_path = os.path.join(tmp, "q.epub")
+            cmd = ["pandoc", "-f", "markdown", "-t", "epub3", f"--lua-filter={FILTER_PATH}", "-o", epub_path]
+            res = subprocess.run(cmd, input=PLAIN_QUIZ_INPUT, capture_output=True, text=True)
+            assert res.returncode == 0
+            with zipfile.ZipFile(epub_path) as z:
+                content = z.read("EPUB/text/ch001.xhtml").decode("utf-8")
+    assert "Plain words here" in content
+    assert "Correct plain <em>answer</em>" in content
+    assert "math first" in content
+    for marker in ("☐", "☒", "[ ]", "[x]"):
+        assert marker not in content
+
+
 ABC_INPUT = """
 ```abc
 X:1

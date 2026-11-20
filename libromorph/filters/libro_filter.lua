@@ -676,7 +676,12 @@ local function parse_rhythm_grid(text)
           span = math.max(1, last_ci - ci + 1)
         end
         if row.cells[ci] then
-          row.cells[ci].text = row.cells[ci].text .. " " .. ph.text
+          -- "." only marks an empty cell, so it never merges with content
+          if row.cells[ci].text == "." then
+            row.cells[ci] = { text = ph.text, span = span }
+          elseif ph.text ~= "." then
+            row.cells[ci].text = row.cells[ci].text .. " " .. ph.text
+          end
         else
           row.cells[ci] = { text = ph.text, span = span }
         end

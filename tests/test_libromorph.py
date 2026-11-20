@@ -328,6 +328,15 @@ def test_rhythm_grid_subdivision_names():
     assert "B: strong on 4; light on 3&amp;" in res.stdout
 
 
+def test_rhythm_grid_dot_never_merges_with_content():
+    # "A" and "." both fall nearest count 1 when a row is typed one column left
+    md = "```rhythm-grid\nLocal count:  1 2 3 4 5 6\nCell A:      A . . Bb . Bb\n```\n"
+    res = _run_filter(md)
+    assert res.returncode == 0
+    assert "Cell A: A on 1; Bb on 4, 6" in res.stdout
+    assert ">A .<" not in res.stdout
+
+
 def test_rhythm_grid_circle_html_and_epub():
     md = ('```{.rhythm-grid .circle title="Cycle"}\n'
           'Count:    1  2  3 | 4  5  6 | 7  8 | 9 10 |11 12\n'

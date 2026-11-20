@@ -2,6 +2,19 @@
 (function () {
   'use strict';
 
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  // fretboard.js scale dots carry a note name such as "Bb" or "F#".
+  function noteLabel(note) {
+    return note.charAt(0) + note.slice(1).replace(/#/g, '♯').replace(/b/g, '♭');
+  }
+
+  function dotLabel(dot) {
+    if (dot.label != null) return String(dot.label);
+    if (typeof dot.note === 'string') return noteLabel(dot.note);
+    return '';
+  }
+
   function render(target, source) {
     const spec = JSON.parse(source);
     if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
@@ -32,7 +45,7 @@
       fretCount: fretCount,
       width: width,
       height: Math.round(32 * k) * (tuning.length - 1),
-      dotSize: 26 * k,
+      dotSize: 29 * k,
       dotTextSize: 17 * k,
       dotStrokeWidth: 2 * k,
       topPadding: 28 * k,
@@ -45,9 +58,12 @@
       fretColor: fg,
       nutColor: fg,
       fretNumbersColor: fg,
+      // fretboard.js marks the 12th fret in red by default; keep its extra
+      // width as an octave marker but draw it in the page color.
+      middleFretColor: fg,
       dotStrokeColor: fg,
       dotFill: '#fff',
-      dotText: function (dot) { return dot.label == null ? '' : String(dot.label); }
+      dotText: dotLabel
     };
     const board = new window.fretboard.Fretboard(options);
     if (spec.scale) {
@@ -55,7 +71,7 @@
         throw new Error('scale requires root and type');
       }
       board.renderScale(spec.scale);
-      board.style({ filter: { interval: '1P' }, fill: '#b91c1c' });
+      board.style({ filter: { interval: '1P' }, fill: '#b91c1c', text: dotLabel, fontFill: '#fff' });
     } else {
       spec.dots.forEach(function (dot) {
         if (!Number.isInteger(dot.string) || dot.string < 1 || dot.string > tuning.length ||
@@ -69,6 +85,30 @@
     if (svg) {
       const fretNumbers = svg.querySelector('.fret-numbers');
       if (fretNumbers) fretNumbers.setAttribute('font-size', 16 * k);
+      // Two-character labels such as "B♭" or "♭7" fit the dot at full size;
+      // longer ones such as "♭13" would overflow it.
+      svg.querySelectorAll('.dot-text').forEach(function (text) {
+        if (text.textContent.length >= 3) text.setAttribute('font-size', 13 * k);
+      });
+      // Draw the title above the board so it shows on the page (and in the
+      // EPUB image), not only as a tooltip.
+      if (spec.title) {
+        const box = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number);
+        if (box.length === 4 && box.every(isFinite)) {
+          const titleHeight = 30 * k;
+          svg.setAttribute('viewBox', [box[0], box[1] - titleHeight, box[2], box[3] + titleHeight].join(' '));
+          const caption = document.createElementNS(SVG_NS, 'text');
+          caption.setAttribute('class', 'fretboard-title');
+          caption.setAttribute('x', options.leftPadding);
+          caption.setAttribute('y', box[1] - titleHeight * 0.3);
+          caption.setAttribute('font-size', 18 * k);
+          caption.setAttribute('font-weight', 'bold');
+          caption.setAttribute('font-family', 'Helvetica, Arial, sans-serif');
+          caption.setAttribute('fill', fg);
+          caption.textContent = spec.title;
+          svg.appendChild(caption);
+        }
+      }
       svg.setAttribute('role', 'img');
       svg.setAttribute('aria-label', spec.title || 'Fretboard diagram');
       const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');

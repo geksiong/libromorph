@@ -48,6 +48,10 @@ def create_parser() -> argparse.ArgumentParser:
                               help="Engine for rendering ABC music scores to SVG in EPUB (default: auto)")
     build_parser.add_argument("--mermaid-renderer", choices=MERMAID_RENDERER_CHOICES,
                               help="Engine for rendering Mermaid diagrams to SVG in EPUB (default: auto)")
+    build_parser.add_argument("--fretboard-renderer", choices=["auto", "fretboard-js", "none"],
+                              help="Render fretboard.js diagrams to SVG in EPUB")
+    build_parser.add_argument("--fretdrom-renderer", choices=["auto", "fretdrom", "none"],
+                              help="Render Fretdrom diagrams to SVG in EPUB")
 
     # Command: init
     init_parser = subparsers.add_parser("init", help="Initialize a new book project or scaffold a demo book.")
@@ -147,6 +151,10 @@ def main():
             overrides["abc_renderer"] = args.abc_renderer
         if args.mermaid_renderer:
             overrides["mermaid_renderer"] = args.mermaid_renderer
+        if args.fretboard_renderer:
+            overrides["fretboard_renderer"] = args.fretboard_renderer
+        if args.fretdrom_renderer:
+            overrides["fretdrom_renderer"] = args.fretdrom_renderer
 
         try:
             config = BookConfig.load(book_dir, overrides=overrides)

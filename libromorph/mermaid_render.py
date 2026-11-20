@@ -23,8 +23,8 @@ from .render_utils import (
 )
 
 
-MERMAID_VERSION = "11.17.2"
-MERMAID_CDN_URL = f"https://cdn.jsdelivr.net/npm/mermaid@{MERMAID_VERSION}/dist/mermaid.min.js"
+MERMAID_VERSION = "12.3.0"
+MERMAID_CDN_URL = f"https://cdn.jsdelivr.net/npm/mermaid@{MERMAID_VERSION}/dist/mermaid.esm.min.mjs"
 
 RENDERERS = ["mermaid-js", "mmdc"]
 RENDERER_CHOICES = ["auto", "none"] + RENDERERS
@@ -37,7 +37,6 @@ INSTALL_HINTS = {
 
 # Mermaid config shared by both renderers
 MERMAID_CONFIG = {
-    "theme": "default",
     "securityLevel": "strict",
     "htmlLabels": False,
     "flowchart": {"htmlLabels": False},
@@ -101,6 +100,7 @@ def resolve_renderer(choice: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 _MERMAID_RENDER_JS = """async ([texts, config]) => {
+    const { default: mermaid } = await import("__MERMAID_URL__");
     mermaid.initialize(Object.assign({ startOnLoad: false }, config));
     const out = [];
     for (let i = 0; i < texts.length; i++) {
@@ -112,13 +112,13 @@ _MERMAID_RENDER_JS = """async ([texts, config]) => {
         }
     }
     return out;
-}"""
+}""".replace("__MERMAID_URL__", MERMAID_CDN_URL)
 
 
 def _render_mermaid_js(texts: List[str]) -> List[List[str]]:
     try:
         # render_in_browser passes a single argument, so bundle texts with the config
-        return render_in_browser(MERMAID_CDN_URL, _MERMAID_RENDER_JS, [texts, MERMAID_CONFIG])
+        return render_in_browser([], _MERMAID_RENDER_JS, [texts, MERMAID_CONFIG])
     except RenderError as e:
         raise MermaidRenderError(f"mermaid.js failed: {e}")
 

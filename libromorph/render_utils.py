@@ -12,7 +12,7 @@ import os
 import re
 import shutil
 import subprocess
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 
 # System browsers Playwright (or Puppeteer) can drive when no bundled Chromium is downloaded
@@ -64,8 +64,8 @@ def check_playwright() -> Optional[str]:
     return None
 
 
-def render_in_browser(script_url: str, js_function: str, texts: List[str]) -> List[List[str]]:
-    """Loads `script_url` in headless Chromium and evaluates `js_function(texts)`."""
+def render_in_browser(script_url: Union[str, List[str]], js_function: str, texts: List[str]) -> List[List[str]]:
+    """Loads one or more scripts in Chromium and evaluates `js_function(texts)`."""
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
@@ -76,10 +76,14 @@ def render_in_browser(script_url: str, js_function: str, texts: List[str]) -> Li
         try:
             page = browser.new_page()
             page.set_content("<!DOCTYPE html><html><body></body></html>")
-            try:
-                page.add_script_tag(url=script_url)
-            except Exception as e:
-                raise RenderError(f"Could not load {script_url}: {e}")
+            for script in ([script_url] if isinstance(script_url, str) else script_url):
+                try:
+                    if os.path.isfile(script):
+                        page.add_script_tag(path=script)
+                    else:
+                        page.add_script_tag(url=script)
+                except Exception as e:
+                    raise RenderError(f"Could not load {script}: {e}")
             try:
                 return page.evaluate(js_function, texts)
             except Exception as e:

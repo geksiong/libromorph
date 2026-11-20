@@ -416,6 +416,12 @@ ruby rp {
   height: auto;
   margin: 0 auto;
 }
+.mermaid-theme-gallery .mermaid-diagram {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75em;
+}
 .mermaid-source {
   text-align: left;
   margin: 0;
@@ -489,6 +495,31 @@ ruby rp {
 .chord-error {
   color: #b91c1c;
   font-style: italic;
+}
+
+/* Fretboard.js and Fretdrom diagrams */
+.lm-fret-diagram {
+  margin: 1.6em 0;
+  max-width: 100%;
+  overflow-x: auto;
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  text-align: center;
+}
+.lm-fret-diagram svg,
+.lm-fret-diagram img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.lm-fret-diagram-epub pre {
+  text-align: left;
+  white-space: pre-wrap;
+}
+.lm-fretboard-error,
+.fretdrom-error {
+  color: #b91c1c;
 }
 
 /* Writing Mode Islands: mix vertical blocks in horizontal docs and vice versa */

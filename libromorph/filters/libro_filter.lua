@@ -7,9 +7,13 @@ local is_epub = (FORMAT:match("^epub") ~= nil)
 local quiz_counter = 0
 local abc_counter = 0
 local mermaid_counter = 0
+local fretboard_counter = 0
+local fretdrom_counter = 0
 -- Directories of build-time rendered SVGs (<sha1>-<n>.svg), set by the builder
 local abc_svg_dir = os.getenv("LIBROMORPH_ABC_SVG_DIR")
 local mermaid_svg_dir = os.getenv("LIBROMORPH_MERMAID_SVG_DIR")
+local fretboard_svg_dir = os.getenv("LIBROMORPH_FRETBOARD_SVG_DIR")
+local fretdrom_svg_dir = os.getenv("LIBROMORPH_FRETDROM_SVG_DIR")
 
 -- Helper: Convert inlines or blocks to plain text or HTML string
 local function stringify(x)
@@ -539,6 +543,36 @@ local function chord_block(block)
   ))
 end
 
+-- Fretboard.js uses JSON; Fretdrom uses its native JSON5 input.
+local function fretboard_block(block, engine)
+  local count, svg_dir
+  if engine == "fretdrom" then
+    fretdrom_counter = fretdrom_counter + 1
+    count, svg_dir = fretdrom_counter, fretdrom_svg_dir
+  else
+    fretboard_counter = fretboard_counter + 1
+    count, svg_dir = fretboard_counter, fretboard_svg_dir
+  end
+  local block_id = block.identifier ~= "" and block.identifier or (engine .. "-diagram-" .. count)
+  local alt = block.attributes["alt"] or (engine == "fretdrom" and "Fretted instrument diagram" or "Fretboard diagram")
+  local images = is_epub and rendered_svg_images(svg_dir, block.text, alt, engine .. "-svg") or {}
+  if #images > 0 then
+    return pandoc.Div(images, pandoc.Attr(block_id, { "lm-fret-diagram", "lm-fret-diagram-epub" }))
+  end
+  if is_epub then
+    return pandoc.RawBlock('html', string.format(
+      '<div class="lm-fret-diagram lm-fret-diagram-epub" id="%s"><pre><code>%s</code></pre></div>',
+      html_escape(block_id), html_escape(block.text)))
+  end
+  local script_type = engine == "fretdrom" and "fretdrom" or "application/json"
+  local render_target = engine == "fretdrom" and "" or '<div class="lm-fretboard-render"></div>'
+  return pandoc.RawBlock('html', string.format(
+    '<div class="lm-fret-diagram lm-%s" id="%s" role="img" aria-label="%s">%s' ..
+    '<script type="%s">%s</script></div>',
+    engine, html_escape(block_id), html_escape(alt), render_target,
+    script_type, block.text:gsub("</", "<\\/")))
+end
+
 -- Process CodeBlock elements (ABC music, Mermaid diagrams, chord diagrams)
 function CodeBlock(block)
   if block.classes:includes('abc') then
@@ -547,6 +581,10 @@ function CodeBlock(block)
     return mermaid_block(block)
   elseif block.classes:includes('chord') or block.classes:includes('chords') then
     return chord_block(block)
+  elseif block.classes:includes('fretboard') then
+    return fretboard_block(block, "fretboard")
+  elseif block.classes:includes('fretdrom') then
+    return fretboard_block(block, "fretdrom")
   end
 
   return block

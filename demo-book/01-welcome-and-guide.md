@@ -23,36 +23,9 @@ LibroMorph integrates the following capabilities seamlessly into Pandoc's proces
 6. **Interactive Self-Testing Quizzes**: Dynamic client-side interactive quizzes with instant grading and explanations for web readers, alongside accessible `<details>` fallbacks for EPUB e-readers.
 7. **Mathematical Typesetting**: Standards-compliant [MathML]{.index entry="Mathematics!MathML"} for EPUB 3 readers, paired with [MathJax 3]{.index entry="Mathematics!MathJax"} for crisp, responsive web formula rendering.
 8. **Genre-Specific Typography Themes**: Choose between `classic-novel`, `technical`, `cjk-vertical`, `modern-minimal`, and `fantasy-vintage`.
-9. **Music Notation**: Fenced `abc` code blocks in [ABC notation]{.index entry="Music!ABC Notation"} are engraved as sheet music in web readers and shown as notation in EPUB:
+9. **Diagrams**: A dedicated chapter demonstrates [Mermaid]{.index entry="Diagrams!Mermaid"} flowcharts, sequence diagrams, and state diagrams in web and EPUB output.
 
-```abc
-X:1
-T:Ode to Joy
-M:4/4
-L:1/4
-K:D
-F F G A | A G F E | D D E F | F3/2 E/ E2 |
-```
-
-10. **Diagrams**: Fenced `mermaid` code blocks are drawn as [Mermaid]{.index entry="Diagrams!Mermaid"} diagrams, such as this overview of the LibroMorph build pipeline:
-
-```{.mermaid alt="LibroMorph build pipeline: Markdown chapters flow through the indexer and Pandoc with the Lua filter into EPUB and HTML outputs"}
-flowchart LR
-    md[Markdown chapters] --> idx[Indexer]
-    idx --> pandoc[Pandoc + Lua filter]
-    pandoc --> epub[EPUB 3]
-    pandoc --> html[HTML web reader]
-    svg[SVG renderers] -.-> epub
-```
-
-11. **Chord Diagrams**: Fenced `chord` code blocks draw [chord diagrams]{.index entry="Music!Chord Diagrams"} for guitar, ukulele and other fretted instruments, with fingerings and barres:
-
-```chord
-C    x32010  fingers=x32010
-G    320003  fingers=210003
-Am   x02210  fingers=x02310
-F    133211  fingers=134211
-```
+10. **Music and Fretboards**: A dedicated chapter demonstrates [ABC notation]{.index entry="Music!ABC Notation"}, [chord diagrams]{.index entry="Music!Chord Diagrams"}, fretboard.js scale and exercise diagrams, and Fretdrom scale boxes and tablature.
 
 ::: tip
 Try switching between color modes (Light, Dark, and Sepia) using the dropdown in the top navigation bar!

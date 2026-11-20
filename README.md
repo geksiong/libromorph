@@ -23,6 +23,7 @@
 - 🎵 **ABC Music Notation**: Fenced ` ```abc ` code blocks are rendered as sheet music with [abcjs](https://www.abcjs.net) in web readers (with a "View ABC Source" toggle), and pre-rendered to SVG images for EPUB with your choice of abcjs, abcm2ps or abc2svg.
 - 🔀 **Mermaid Diagrams**: Fenced ` ```mermaid ` code blocks are drawn with [Mermaid](https://mermaid.js.org) in web readers (following the light/dark color mode), and pre-rendered to SVG images for EPUB with mermaid.js or mermaid-cli.
 - 🎸 **Chord Diagrams**: Fenced ` ```chord ` code blocks draw fretboard chord diagrams (guitar, ukulele or any fretted instrument) as SVG, with fingerings and barres, with no extra dependencies.
+- 🎸 **Fretboard Diagrams**: Fenced `fretboard` blocks use fretboard.js for scales or marked positions; `fretdrom` blocks use Fretdrom for scale boxes and tabs. Both render as SVG in HTML and EPUB.
 
 ---
 
@@ -119,6 +120,8 @@ index:
 
 abc_renderer: auto     # EPUB music scores: auto | abcjs | abcm2ps | abc2svg | none
 mermaid_renderer: auto # EPUB diagrams: auto | mermaid-js | mmdc | none
+fretboard_renderer: auto # EPUB fretboard.js: auto | fretboard-js | none
+fretdrom_renderer: auto  # EPUB Fretdrom: auto | fretdrom | none
 ```
 
 ---
@@ -218,7 +221,7 @@ flowchart LR
     cart[Cart] --> checkout[Checkout] --> done[Confirmation]
 ```
 ~~~
-Plain ` ```mermaid ` works too; the optional `alt` attribute provides the accessible description (default: "Diagram"). Web readers load mermaid.js only on pages that contain diagrams. For EPUB, diagrams are rendered to SVG images at build time with the engine chosen by `mermaid_renderer` in `book.yaml` or `--mermaid-renderer`:
+Plain ` ```mermaid ` works too; the optional `alt` attribute provides the accessible description (default: "Diagram"). Web readers load Mermaid 12.3.0 as an ES module only on pages that contain diagrams; Mermaid 12 targets modern browsers (Safari 17.4 or later). For EPUB, diagrams are rendered to SVG images at build time with the engine chosen by `mermaid_renderer` in `book.yaml` or `--mermaid-renderer`:
 
 | Renderer     | Requirements                                                              |
 |--------------|---------------------------------------------------------------------------|
@@ -228,6 +231,7 @@ Plain ` ```mermaid ` works too; the optional `alt` attribute provides the access
 | `none`       | show the Mermaid source as text in EPUB                                  |
 
 EPUB diagrams use plain SVG text labels (no HTML `foreignObject`) so they display in e-readers.
+Mermaid's built-in theme and look defaults are used in light mode and EPUB; the web reader uses `redux-dark-color` in dark mode. Add Mermaid frontmatter to a block to select a specific theme or look, as shown in the demo book's Mermaid chapter.
 
 ### 9. Chord Diagrams
 ~~~markdown
@@ -246,6 +250,41 @@ Each line defines one chord, `NAME FRETS [options]`, drawn side by side:
 - `barre=N` draws a barre on fret N without needing `fingers=`.
 
 ` ```chords ` works as well. Diagrams are drawn as SVG by the Lua filter itself: inline in web readers, where they follow the light/dark color mode, and as SVG images in EPUB. A block with a syntax error is shown as source text with the error message, and the build prints a warning.
+
+### 10. Fretboard Diagrams
+
+Use `fretboard` with JSON to let [fretboard.js](https://moonwave99.github.io/fretboard.js/) calculate a scale across the neck:
+
+~~~markdown
+```{.fretboard alt="A minor pentatonic notes on guitar"}
+{"title":"A minor pentatonic","fretCount":12,
+ "scale":{"root":"A","type":"minor pentatonic"}}
+```
+~~~
+
+For a chosen exercise or riff, supply explicit positions instead. String `1` is the high string; tuning is listed low to high. `label` is displayed on the dot, so it can indicate playing order or fingering.
+
+~~~markdown
+```fretboard
+{"title":"Ascending exercise","fretCount":8,
+ "dots":[{"string":6,"fret":5,"label":"1"},
+         {"string":6,"fret":8,"label":"2"},
+         {"string":5,"fret":5,"label":"3"}]}
+```
+~~~
+
+Use `fretdrom` with [Fretdrom's JSON5 notation](https://github.com/morganp/fretdrom#scale-diagrams) for compact scale boxes, chord rows, or tablature:
+
+~~~markdown
+```{.fretdrom alt="A minor pentatonic box"}
+{scale:{name:"A minor pentatonic",start_fret:5,num_frets:4,
+ grid:[["R",".",".","x"],["x",".","x","."],
+       ["x",".","x","."],["x",".","x","."],
+       ["x",".",".","x"],["R",".",".","x"]]}}
+```
+~~~
+
+The web reader bundles both JavaScript libraries, so its diagrams work offline. EPUB diagrams are SVG images: `fretboard` needs `playwright` plus Chrome/Chromium (`pip install 'libromorph[diagrams]'`), and `fretdrom` needs its CLI (`npm install -g fretdrom`). If a renderer is unavailable in `auto` mode, EPUB shows the block source. Set `fretboard_renderer` or `fretdrom_renderer` to an explicit engine to make a missing dependency a build error.
 
 ---
 

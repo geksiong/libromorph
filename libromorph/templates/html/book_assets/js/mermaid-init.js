@@ -12,13 +12,13 @@
   "use strict";
 
   // Keep in sync with MERMAID_VERSION in libromorph/mermaid_render.py
-  var MERMAID_SRC = "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js";
+  var MERMAID_SRC = "https://cdn.jsdelivr.net/npm/mermaid@12.3.0/dist/mermaid.esm.min.mjs";
 
   var renderCount = 0;
   var currentTheme = null;
 
   function themeForPage() {
-    return document.documentElement.getAttribute("data-color-mode") === "dark" ? "dark" : "default";
+    return document.documentElement.getAttribute("data-color-mode") === "dark" ? "redux-dark-color" : null;
   }
 
   function showSource(renderEl, text) {
@@ -34,10 +34,17 @@
     return scriptEl ? scriptEl.textContent.replace(/<\\\//g, "</") : null;
   }
 
-  async function renderAll(containers) {
+  async function renderAll(containers, mermaid) {
     var theme = themeForPage();
     currentTheme = theme;
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: theme });
+    var config = {
+      startOnLoad: false,
+      securityLevel: "strict",
+      htmlLabels: false,
+      flowchart: { htmlLabels: false }
+    };
+    if (theme) config.theme = theme;
+    mermaid.initialize(config);
 
     for (var i = 0; i < containers.length; i++) {
       var renderEl = containers[i].querySelector(".mermaid-render");
@@ -63,24 +70,21 @@
     var containers = document.querySelectorAll(".mermaid-diagram");
     if (containers.length === 0) return;
 
-    var script = document.createElement("script");
-    script.src = MERMAID_SRC;
-    script.onload = function () {
-      renderAll(containers);
+    import(MERMAID_SRC).then(function (module) {
+      var mermaid = module.default;
+      renderAll(containers, mermaid);
 
       // Re-render with the matching mermaid theme when the color mode changes
       new MutationObserver(function () {
-        if (themeForPage() !== currentTheme) renderAll(containers);
+        if (themeForPage() !== currentTheme) renderAll(containers, mermaid);
       }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-color-mode"] });
-    };
-    script.onerror = function () {
+    }).catch(function () {
       // mermaid.js never loaded — show the raw source as fallback
       containers.forEach(function (container) {
         var renderEl = container.querySelector(".mermaid-render");
         var text = diagramSource(container);
         if (renderEl && text !== null) showSource(renderEl, text);
       });
-    };
-    document.head.appendChild(script);
+    });
   });
 })();

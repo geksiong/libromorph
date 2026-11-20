@@ -5,7 +5,7 @@ language: "en"
 date: "2026-10-27"
 publisher: "LibroMorph Editions"
 rights: "Creative Commons Attribution 4.0 International (CC BY 4.0)"
-description: "A comprehensive demonstration book showcasing Pandoc-powered publishing with LibroMorph: featuring typography themes, mathematical formulas, Japanese furigana ruby text, vertical CJK layouts, interactive quizzes, automated table of contents, and cross-referenced index creation."
+description: "A comprehensive demonstration book showcasing Pandoc-powered publishing with LibroMorph: featuring typography themes, mathematical formulas, Japanese furigana ruby text, vertical CJK layouts, interactive quizzes, music notation, chord and fretboard diagrams, Mermaid charts, automated table of contents, and cross-referenced index creation."
 theme: "technical"
 vertical_layout: false
 

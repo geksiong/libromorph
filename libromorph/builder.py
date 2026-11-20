@@ -13,7 +13,7 @@ from jinja2 import Environment, FileSystemLoader
 from .config import BookConfig, ChapterInfo
 from .indexer import BookIndexer
 from .cover import generate_cover_image
-from . import abc_render, mermaid_render
+from . import abc_render, mermaid_render, fretboard_render
 from .render_utils import RenderError
 
 
@@ -34,6 +34,10 @@ SVG_BLOCK_TYPES = [
      abc_render.render_abc_blocks, "abc_renderer", "LIBROMORPH_ABC_SVG_DIR"),
     ("mermaid", mermaid_render.extract_mermaid_blocks, mermaid_render.resolve_renderer,
      mermaid_render.render_mermaid_blocks, "mermaid_renderer", "LIBROMORPH_MERMAID_SVG_DIR"),
+    ("fretboard", fretboard_render.extract_fretboard_blocks, fretboard_render.resolve_fretboard_renderer,
+     fretboard_render.render_fretboard_blocks, "fretboard_renderer", "LIBROMORPH_FRETBOARD_SVG_DIR"),
+    ("fretdrom", fretboard_render.extract_fretdrom_blocks, fretboard_render.resolve_fretdrom_renderer,
+     fretboard_render.render_fretdrom_blocks, "fretdrom_renderer", "LIBROMORPH_FRETDROM_SVG_DIR"),
 ]
 
 
@@ -234,10 +238,11 @@ class BookBuilder:
         shutil.copy2(os.path.join(src_assets, "css", "reader.css"), os.path.join(css_dest, "reader.css"))
         shutil.copy2(self._resolve_theme_css(), os.path.join(css_dest, "theme.css"))
 
-        for js_file in ["quiz.js", "reader.js", "search.js", "abc.js", "mermaid-init.js"]:
+        for js_file in ["quiz.js", "reader.js", "search.js", "abc.js", "mermaid-init.js", "fretboard-init.js"]:
             src_js = os.path.join(src_assets, "js", js_file)
             if os.path.exists(src_js):
                 shutil.copy2(src_js, os.path.join(js_dest, js_file))
+        shutil.copytree(os.path.join(src_assets, "js", "vendor"), os.path.join(js_dest, "vendor"), dirs_exist_ok=True)
 
         # Copy book cover image
         cover_filename = ""

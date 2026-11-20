@@ -5,12 +5,13 @@ tests/test_libromorph.py: Test suite covering filters, indexer, cover generator,
 import os
 import tempfile
 import subprocess
+import zipfile
 import pytest
 from libromorph.config import BookConfig
 from libromorph.builder import BookBuilder
 from libromorph.indexer import BookIndexer, slugify
 from libromorph.cover import generate_cover_image
-from libromorph import abc_render, mermaid_render
+from libromorph import abc_render, mermaid_render, fretboard_render
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -300,6 +301,48 @@ def test_chord_filter_epub():
     assert 'alt="Am chord: 2 0 0 0"' in content
     assert len(svgs) == 3
     assert all("currentColor" not in svg and 'xmlns="http://www.w3.org/2000/svg"' in svg for svg in svgs)
+
+
+FRETBOARD_INPUT = '''
+```{.fretboard alt="A minor pentatonic"}
+{"title":"A minor pentatonic","fretCount":8,"scale":{"root":"A","type":"minor pentatonic"}}
+```
+```{.fretdrom alt="Riff tab"}
+{name:"Riff",tab:[{name:"e",wave:"03.."},{name:"B",wave:"...."}]}
+```
+'''
+
+
+def test_fret_diagram_filter_html():
+    res = _run_filter(FRETBOARD_INPUT)
+    assert res.returncode == 0
+    assert 'class="lm-fret-diagram lm-fretboard"' in res.stdout
+    assert 'class="lm-fret-diagram lm-fretdrom"' in res.stdout
+    assert '<script type="application/json">' in res.stdout
+    assert '<script type="fretdrom">' in res.stdout
+    assert 'aria-label="A minor pentatonic"' in res.stdout
+
+
+def test_fret_diagram_filter_epub_embeds_svg():
+    texts = (fretboard_render.extract_fretboard_blocks(FRETBOARD_INPUT),
+             fretboard_render.extract_fretdrom_blocks(FRETBOARD_INPUT))
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env = dict(os.environ)
+        for kind, source in zip(("FRETBOARD", "FRETDROM"), texts):
+            svg_dir = os.path.join(tmpdir, kind.lower())
+            os.makedirs(svg_dir)
+            with open(os.path.join(svg_dir, f"{abc_render.abc_hash(source[0])}-1.svg"), "w") as stream:
+                stream.write('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"></svg>')
+            env[f"LIBROMORPH_{kind}_SVG_DIR"] = svg_dir
+        epub_path = os.path.join(tmpdir, "fret.epub")
+        res = subprocess.run(["pandoc", "-f", "markdown", "-t", "epub3",
+                              f"--lua-filter={FILTER_PATH}", "-o", epub_path],
+                             input=FRETBOARD_INPUT, capture_output=True, text=True, env=env)
+        assert res.returncode == 0, res.stderr
+        with zipfile.ZipFile(epub_path) as archive:
+            content = archive.read("EPUB/text/ch001.xhtml").decode("utf-8")
+            assert content.count('class="lm-fret-diagram lm-fret-diagram-epub"') == 2
+            assert len([name for name in archive.namelist() if name.endswith(".svg")]) == 2
 
 
 def test_callout_filter():

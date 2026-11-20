@@ -19,11 +19,28 @@
       throw new Error('fretCount must be between 1 and 35');
     }
     const fg = getComputedStyle(target).color || '#222';
+    // The SVG is scaled to the column width (often ~450px on e-readers), so
+    // fretboard.js's 960px default made labels ~5px tall. Size the drawing to
+    // the fret count and scale text and dots with it, so they stay ~12px
+    // when the board is shown 450px wide.
+    const width = Math.max(600, fretCount * 50);
+    const k = width / 600;
     const options = {
       el: target,
       tuning: tuning,
       stringCount: tuning.length,
       fretCount: fretCount,
+      width: width,
+      height: Math.round(32 * k) * (tuning.length - 1),
+      dotSize: 26 * k,
+      dotTextSize: 17 * k,
+      dotStrokeWidth: 2 * k,
+      topPadding: 28 * k,
+      bottomPadding: 15 * k,
+      leftPadding: 32 * k,
+      rightPadding: 24 * k,
+      fretNumbersHeight: 40 * k,
+      fretNumbersMargin: 24 * k,
       stringColor: fg,
       fretColor: fg,
       nutColor: fg,
@@ -50,6 +67,8 @@
     }
     const svg = target.querySelector('svg');
     if (svg) {
+      const fretNumbers = svg.querySelector('.fret-numbers');
+      if (fretNumbers) fretNumbers.setAttribute('font-size', 16 * k);
       svg.setAttribute('role', 'img');
       svg.setAttribute('aria-label', spec.title || 'Fretboard diagram');
       const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');

@@ -21,13 +21,16 @@ def slugify(text: str) -> str:
 
 class IndexEntry:
     def __init__(self, raw_entry: str, anchor_id: str, chapter_title: str,
-                 chapter_num: int, chapter_href: str, section_title: str = ""):
+                 chapter_num: int, chapter_href: str, section_title: str = "",
+                 chapter_label: str = ""):
         self.raw_entry = raw_entry.strip()
         self.anchor_id = anchor_id
         self.chapter_title = chapter_title
         self.chapter_num = chapter_num
         self.chapter_href = chapter_href
         self.section_title = section_title
+        # Text shown for this reference in the index, e.g. "Ch. 3".
+        self.chapter_label = chapter_label or f"Ch. {chapter_num}"
 
         # Check for hierarchical levels (e.g., "Physics!Quantum Mechanics!Entanglement")
         parts = [p.strip() for p in self.raw_entry.split('!') if p.strip()]
@@ -59,7 +62,8 @@ class BookIndexer:
         return f"idx-{slug}-{self._anchor_counts[slug]}"
 
     def process_chapter_markdown(self, markdown: str, chapter_num: int,
-                                 chapter_title: str, chapter_href: str) -> Tuple[str, List[IndexEntry]]:
+                                 chapter_title: str, chapter_href: str,
+                                 chapter_label: str = "") -> Tuple[str, List[IndexEntry]]:
         """
         Parses index tags in the markdown, injects HTML anchors with IDs,
         and returns the transformed markdown and discovered IndexEntry list.
@@ -105,7 +109,8 @@ class BookIndexer:
                     chapter_title=chapter_title,
                     chapter_num=chapter_num,
                     chapter_href=chapter_href,
-                    section_title=current_section
+                    section_title=current_section,
+                    chapter_label=chapter_label
                 )
                 discovered.append(entry_obj)
                 self.entries.append(entry_obj)
@@ -130,7 +135,8 @@ class BookIndexer:
                     chapter_title=chapter_title,
                     chapter_num=chapter_num,
                     chapter_href=chapter_href,
-                    section_title=current_section
+                    section_title=current_section,
+                    chapter_label=chapter_label
                 )
                 discovered.append(entry_obj)
                 self.entries.append(entry_obj)
@@ -220,7 +226,7 @@ class BookIndexer:
             for term, data in terms.items():
                 ref_links = []
                 for entry in data["refs"]:
-                    loc_text = f"Ch. {entry.chapter_num}"
+                    loc_text = entry.chapter_label
                     if entry.section_title and entry.section_title != entry.chapter_title:
                         # Clean section title
                         clean_sec = entry.section_title.replace('"', '').replace("'", "")
@@ -240,7 +246,7 @@ class BookIndexer:
                     for sub, sub_entries in data["subs"].items():
                         sub_ref_links = []
                         for entry in sub_entries:
-                            loc_text = f"Ch. {entry.chapter_num}"
+                            loc_text = entry.chapter_label
                             if entry.section_title and entry.section_title != entry.chapter_title:
                                 clean_sec = entry.section_title.replace('"', '').replace("'", "")
                                 loc_text += f" ({clean_sec})"

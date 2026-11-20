@@ -38,6 +38,7 @@ class BookConfig:
     toc_depth: int = 3
     index_enabled: bool = True
     index_title: str = "Index"
+    index_chapter_labels: str = "number"
     math_mode: str = "auto"
     custom_css: Optional[str] = None
     abc_renderer: str = "auto"
@@ -92,12 +93,17 @@ class BookConfig:
             toc_depth = int(toc_conf.get("depth", 3))
 
         index_conf = data.get("index", {})
+        index_chapter_labels = "number"
         if isinstance(index_conf, bool):
             index_enabled = index_conf
             index_title = "Index"
         else:
             index_enabled = bool(index_conf.get("enabled", True))
             index_title = str(index_conf.get("title", "Index"))
+            index_chapter_labels = str(index_conf.get("chapter_labels", "number")).lower()
+            if index_chapter_labels not in ("number", "title"):
+                raise ValueError(
+                    f"index.chapter_labels must be 'number' or 'title', not '{index_chapter_labels}'")
 
         math_mode = data.get("math", "auto")
 
@@ -186,6 +192,7 @@ class BookConfig:
             toc_depth=toc_depth,
             index_enabled=index_enabled,
             index_title=index_title,
+            index_chapter_labels=index_chapter_labels,
             math_mode=math_mode,
             custom_css=custom_css,
             abc_renderer=abc_renderer,

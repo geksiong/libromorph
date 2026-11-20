@@ -117,6 +117,7 @@ toc:
 index:
   enabled: true
   title: "Index of Subjects and Names"
+  chapter_labels: number # number: "Ch. 3" by build position | title: the number a chapter title starts with ("03 — …" → "Ch. 03"), else the title
 
 abc_renderer: auto     # EPUB music scores: auto | abcjs | abcm2ps | abc2svg | none
 mermaid_renderer: auto # EPUB diagrams: auto | mermaid-js | mmdc | none

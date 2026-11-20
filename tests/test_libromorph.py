@@ -412,6 +412,54 @@ def test_indexer_extraction():
     assert "ch01.html#idx-" in html_idx
 
 
+def _write_book(book_dir, index_yaml, chapters):
+    with open(os.path.join(book_dir, "book.yaml"), "w", encoding="utf-8") as f:
+        f.write('title: "Labels"\nauthor: "Tester"\n' + index_yaml)
+    for name, text in chapters:
+        with open(os.path.join(book_dir, name), "w", encoding="utf-8") as f:
+            f.write(text)
+
+
+LABEL_CHAPTERS = [
+    ("01-preface.md", "# Preface\n\nA [Pulse]{.index} here.\n"),
+    ("02-harmony.md", "# 03 — Harmony\n\nA [Shell]{.index} here.\n"),
+]
+
+
+def test_index_chapter_labels_default_to_build_position():
+    with tempfile.TemporaryDirectory() as book_dir:
+        _write_book(book_dir, "", LABEL_CHAPTERS)
+        config = BookConfig.load(book_dir)
+        builder = BookBuilder(config=config, output_dir=os.path.join(book_dir, "dist"))
+        assert config.index_chapter_labels == "number"
+        assert [builder._index_chapter_label(c) for c in config.chapters] == ["Ch. 1", "Ch. 2"]
+
+
+def test_index_chapter_labels_from_titles():
+    with tempfile.TemporaryDirectory() as book_dir:
+        _write_book(book_dir, "index:\n  chapter_labels: title\n", LABEL_CHAPTERS)
+        config = BookConfig.load(book_dir)
+        builder = BookBuilder(config=config, output_dir=os.path.join(book_dir, "dist"))
+        assert [builder._index_chapter_label(c) for c in config.chapters] == ["Preface", "Ch. 03"]
+
+        indexer = BookIndexer()
+        for ch, (_, text) in zip(config.chapters, LABEL_CHAPTERS):
+            indexer.process_chapter_markdown(
+                markdown=text, chapter_num=ch.number, chapter_title=ch.title,
+                chapter_href=ch.html_filename, chapter_label=builder._index_chapter_label(ch))
+        rendered = indexer.render_markdown_index(for_epub=True)
+        assert "[Ch. 03](#" in rendered
+        assert "[Preface](#" in rendered
+        assert "Ch. 2" not in rendered
+
+
+def test_index_chapter_labels_rejects_unknown_value():
+    with tempfile.TemporaryDirectory() as book_dir:
+        _write_book(book_dir, "index:\n  chapter_labels: roman\n", LABEL_CHAPTERS)
+        with pytest.raises(ValueError, match="chapter_labels"):
+            BookConfig.load(book_dir)
+
+
 def test_cover_generation():
     with tempfile.TemporaryDirectory() as tmpdir:
         cover_path = os.path.join(tmpdir, "cover.png")

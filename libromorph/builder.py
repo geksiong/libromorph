@@ -4,6 +4,7 @@ Handles asset bundling, index generation, metadata injection, and theme templati
 """
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -67,6 +68,19 @@ class BookBuilder:
         
         raise BuildError(f"Cannot resolve CSS for theme '{self.config.theme}'")
 
+    def _index_chapter_label(self, ch) -> str:
+        """Label for index references into a chapter.
+
+        "number" (default): position in the build, "Ch. 3".
+        "title": the number a chapter title starts with ("03 — Harmony" gives
+        "Ch. 03"), or the whole title for chapters without one, so books with
+        front matter or their own numbering get labels that match the text.
+        """
+        if self.config.index_chapter_labels == "title":
+            m = re.match(r"^(\d+)\s*[—–:.-]\s", ch.title)
+            return f"Ch. {m.group(1)}" if m else ch.title
+        return f"Ch. {ch.number}"
+
     def _ensure_cover(self) -> str:
         """Ensures a valid cover image exists, auto-generating one if missing."""
         if self.config.cover and os.path.exists(self.config.cover):
@@ -113,7 +127,8 @@ class BookBuilder:
                 markdown=content,
                 chapter_num=ch.number,
                 chapter_title=ch.title,
-                chapter_href=ch.html_filename
+                chapter_href=ch.html_filename,
+                chapter_label=self._index_chapter_label(ch)
             )
             processed_chapters.append((ch, transformed_md))
 

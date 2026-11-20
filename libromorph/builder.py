@@ -72,16 +72,19 @@ class BookBuilder:
         if self.config.cover and os.path.exists(self.config.cover):
             return self.config.cover
 
-        cover_path = os.path.join(self.config.book_dir, "cover.png")
-        if not os.path.exists(cover_path):
-            print(f"[LibroMorph] Generating custom typographic cover for '{self.config.title}'...")
-            generate_cover_image(
-                output_path=cover_path,
-                title=self.config.title,
-                subtitle=self.config.subtitle,
-                author=self.config.author,
-                theme=self.config.theme
-            )
+        # Generated covers are build output: write them next to the other
+        # outputs (never into the source folder) and regenerate each build so
+        # they follow title and theme changes. A cover.png placed in the book
+        # folder is picked up by BookConfig and used instead.
+        cover_path = os.path.join(self.output_dir, "generated-cover.png")
+        print(f"[LibroMorph] Generating custom typographic cover for '{self.config.title}'...")
+        generate_cover_image(
+            output_path=cover_path,
+            title=self.config.title,
+            subtitle=self.config.subtitle,
+            author=self.config.author,
+            theme=self.config.theme
+        )
         self.config.cover = cover_path
         return cover_path
 

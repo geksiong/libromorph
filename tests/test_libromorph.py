@@ -426,6 +426,23 @@ def test_cover_generation():
         assert os.path.getsize(cover_path) > 1000
 
 
+def test_generated_cover_goes_to_output_not_source():
+    with tempfile.TemporaryDirectory() as book_dir, tempfile.TemporaryDirectory() as out_dir:
+        with open(os.path.join(book_dir, "book.yaml"), "w", encoding="utf-8") as f:
+            f.write('title: "No Cover Book"\nauthor: "Tester"\nindex:\n  enabled: false\n')
+        with open(os.path.join(book_dir, "01-only.md"), "w", encoding="utf-8") as f:
+            f.write("# Only chapter\n\nText.\n")
+        before = sorted(os.listdir(book_dir))
+
+        config = BookConfig.load(book_dir)
+        results = BookBuilder(config=config, output_dir=out_dir).build(target_format="all")
+
+        assert sorted(os.listdir(book_dir)) == before
+        assert os.path.exists(os.path.join(out_dir, "generated-cover.png"))
+        assert os.path.exists(results["epub"])
+        assert os.path.exists(os.path.join(results["html"], "cover.png"))
+
+
 def test_full_demo_book_build():
     with tempfile.TemporaryDirectory() as tmpdir:
         config = BookConfig.load(DEMO_DIR)
